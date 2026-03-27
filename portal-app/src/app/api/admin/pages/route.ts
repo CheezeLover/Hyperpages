@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getUserFromRequest } from "@/lib/auth";
-import { getAllPageSettings, setPageSettings, deletePageSettings, type PageSettings } from "@/lib/page-settings";
+import { getUserFromRequest, type HypersetUser } from "@/lib/auth";
+import { getAllPageSettings, setPageSettings, deletePageSettings, getPageSettings, type PageSettings } from "@/lib/page-settings";
+import { getAllProjects, getProject } from "@/lib/project-settings";
 import fs from "fs";
 import path from "path";
 
@@ -12,16 +13,18 @@ const _rateLimitMap = new Map<string, number[]>();
 const RATE_LIMIT = 20;
 const RATE_WINDOW = 60_000;
 
-function requireAdmin(request: NextRequest) {
-  const user = getUserFromRequest(request);
-  if (!user.isAdmin) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-  return null;
-}
-
 function requireAuth(request: NextRequest) {
   const user = getUserFromRequest(request);
   if (!user.email) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   return null;
+}
+
+async function canManagePage(pageName: string, user: HypersetUser): Promise<boolean> {
+  if (user.isAdmin) return true;
+  const settings = await getPageSettings(pageName);
+  if (!settings.projectId) return false; // unassigned pages: admin only
+  const project = await getProject(settings.projectId);
+  return project?.createdBy === user.email;
 }
 
 function scanPagesDir(): { name: string; hasBackend: boolean }[] {
@@ -64,7 +67,9 @@ export async function GET(request: NextRequest) {
     name: p.name,
     hasBackend: p.hasBackend,
     active: settings[p.name]?.active ?? true,
-    allowedGroups: settings[p.name]?.allowedGroups ?? [],
+    allowedEmails: settings[p.name]?.allowedEmails ?? [],
+    projectId: settings[p.name]?.projectId,
+    order: settings[p.name]?.order ?? 0,
     icon: settings[p.name]?.icon,
     iconColor: settings[p.name]?.iconColor,
   }));
@@ -74,16 +79,16 @@ export async function GET(request: NextRequest) {
 
 /** POST /api/admin/pages — upload a new page */
 export async function POST(request: NextRequest) {
-  const denied = requireAdmin(request);
+  const denied = requireAuth(request);
   if (denied) return denied;
 
-  const { email } = getUserFromRequest(request);
-  if (!checkRateLimit(_rateLimitMap, RATE_LIMIT, RATE_WINDOW, email)) {
+  const user = getUserFromRequest(request);
+  if (!checkRateLimit(_rateLimitMap, RATE_LIMIT, RATE_WINDOW, user.email)) {
     return NextResponse.json({ error: "Rate limit exceeded" }, { status: 429 });
   }
 
   const contentType = request.headers.get("content-type") ?? "";
-  
+
   if (!contentType.includes("multipart/form-data")) {
     return NextResponse.json({ error: "Content-Type must be multipart/form-data" }, { status: 400 });
   }
@@ -93,6 +98,7 @@ export async function POST(request: NextRequest) {
     const name = formData.get("name")?.toString().trim();
     const htmlFile = formData.get("html") as File | null;
     const backendFile = formData.get("backend") as File | null;
+    const projectId = formData.get("projectId")?.toString().trim() || undefined;
 
     if (!name) {
       return NextResponse.json({ error: "Page name is required" }, { status: 400 });
@@ -106,8 +112,21 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "HTML file is required" }, { status: 400 });
     }
 
+    // Authorization: must be able to manage the target project (or isAdmin for unassigned)
+    if (projectId) {
+      const project = await getProject(projectId);
+      if (!project) {
+        return NextResponse.json({ error: "Project not found" }, { status: 404 });
+      }
+      if (!user.isAdmin && project.createdBy !== user.email) {
+        return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+      }
+    } else if (!user.isAdmin) {
+      return NextResponse.json({ error: "Forbidden: only admins can add unassigned pages" }, { status: 403 });
+    }
+
     const pageDir = path.join(PAGES_DIR, name);
-    
+
     if (fs.existsSync(pageDir)) {
       return NextResponse.json({ error: `Page "${name}" already exists` }, { status: 400 });
     }
@@ -122,16 +141,18 @@ export async function POST(request: NextRequest) {
       fs.writeFileSync(path.join(pageDir, "backend.py"), backendBuffer);
     }
 
-    await setPageSettings(name, { active: true, allowedGroups: [] });
+    await setPageSettings(name, { active: true, allowedEmails: [], order: 0, projectId });
 
     return NextResponse.json({
       ok: true,
       page: {
-        name, 
+        name,
         hasBackend: !!backendFile && backendFile.size > 0,
         active: true,
-        allowedGroups: [],
-      } 
+        allowedEmails: [],
+        projectId,
+        order: 0,
+      }
     });
   } catch (e) {
     console.error("[admin/pages] Failed to upload page:", e);
@@ -141,11 +162,11 @@ export async function POST(request: NextRequest) {
 
 /** PUT /api/admin/pages — update page files */
 export async function PUT(request: NextRequest) {
-  const denied = requireAdmin(request);
+  const denied = requireAuth(request);
   if (denied) return denied;
 
-  const { email } = getUserFromRequest(request);
-  if (!checkRateLimit(_rateLimitMap, RATE_LIMIT, RATE_WINDOW, email)) {
+  const user = getUserFromRequest(request);
+  if (!checkRateLimit(_rateLimitMap, RATE_LIMIT, RATE_WINDOW, user.email)) {
     return NextResponse.json({ error: "Rate limit exceeded" }, { status: 429 });
   }
 
@@ -167,6 +188,10 @@ export async function PUT(request: NextRequest) {
     const pageDir = path.join(PAGES_DIR, name);
     if (!fs.existsSync(path.join(pageDir, "index.html"))) {
       return NextResponse.json({ error: `Page "${name}" not found` }, { status: 404 });
+    }
+
+    if (!await canManagePage(name, user)) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
     if (htmlFile && htmlFile.size > 0) {
@@ -195,20 +220,22 @@ export async function PUT(request: NextRequest) {
 
 /** PATCH /api/admin/pages — update page settings */
 export async function PATCH(request: NextRequest) {
-  const denied = requireAdmin(request);
+  const denied = requireAuth(request);
   if (denied) return denied;
 
-  const { email } = getUserFromRequest(request);
-  if (!checkRateLimit(_rateLimitMap, RATE_LIMIT, RATE_WINDOW, email)) {
+  const user = getUserFromRequest(request);
+  if (!checkRateLimit(_rateLimitMap, RATE_LIMIT, RATE_WINDOW, user.email)) {
     return NextResponse.json({ error: "Rate limit exceeded" }, { status: 429 });
   }
 
   try {
     const body = await request.json();
-    const { name, active, allowedGroups, icon, iconColor } = body as { 
-      name: string; 
-      active?: boolean; 
-      allowedGroups?: string[];
+    const { name, active, allowedEmails, projectId, order, icon, iconColor } = body as {
+      name: string;
+      active?: boolean;
+      allowedEmails?: string[];
+      projectId?: string | null;
+      order?: number;
       icon?: string;
       iconColor?: string;
     };
@@ -222,10 +249,16 @@ export async function PATCH(request: NextRequest) {
       return NextResponse.json({ error: `Page "${name}" not found` }, { status: 404 });
     }
 
-    const current = (await getAllPageSettings())[name] ?? { active: true, allowedGroups: [] };
+    if (!await canManagePage(name, user)) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
+
+    const current = (await getAllPageSettings())[name] ?? { active: true, allowedEmails: [], order: 0 };
     const updated: PageSettings = {
       active: active !== undefined ? active : current.active,
-      allowedGroups: allowedGroups !== undefined ? allowedGroups : current.allowedGroups,
+      allowedEmails: allowedEmails !== undefined ? allowedEmails : (current.allowedEmails ?? []),
+      projectId: projectId !== undefined ? (projectId ?? undefined) : current.projectId,
+      order: order !== undefined ? order : (current.order ?? 0),
       icon: icon !== undefined ? icon : current.icon,
       iconColor: iconColor !== undefined ? iconColor : current.iconColor,
     };
@@ -241,11 +274,11 @@ export async function PATCH(request: NextRequest) {
 
 /** DELETE /api/admin/pages — delete a page */
 export async function DELETE(request: NextRequest) {
-  const denied = requireAdmin(request);
+  const denied = requireAuth(request);
   if (denied) return denied;
 
-  const { email } = getUserFromRequest(request);
-  if (!checkRateLimit(_rateLimitMap, RATE_LIMIT, RATE_WINDOW, email)) {
+  const user = getUserFromRequest(request);
+  if (!checkRateLimit(_rateLimitMap, RATE_LIMIT, RATE_WINDOW, user.email)) {
     return NextResponse.json({ error: "Rate limit exceeded" }, { status: 429 });
   }
 
@@ -260,6 +293,10 @@ export async function DELETE(request: NextRequest) {
     const pageDir = path.join(PAGES_DIR, name);
     if (!fs.existsSync(path.join(pageDir, "index.html"))) {
       return NextResponse.json({ error: `Page "${name}" not found` }, { status: 404 });
+    }
+
+    if (!await canManagePage(name, user)) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
     fs.rmSync(pageDir, { recursive: true, force: true });

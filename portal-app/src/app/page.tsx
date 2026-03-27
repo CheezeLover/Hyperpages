@@ -12,7 +12,7 @@ export default async function Home() {
     <HypersetLayout
       pagesUrl={pagesUrl}
       isAdmin={user.isAdmin}
-      userRoles={user.roles}
+      userEmail={user.email}
     />
   );
 }

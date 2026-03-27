@@ -10,54 +10,97 @@ interface Page {
   iconColor?: string;
 }
 
+interface PageApiItem {
+  name: string;
+  active: boolean;
+  allowedEmails: string[];
+  projectId?: string;
+  order?: number;
+  icon?: string;
+  iconColor?: string;
+}
+
+interface ProjectApiItem {
+  id: string;
+  name: string;
+  icon?: string;
+  iconColor?: string;
+  allowedEmails: string[];
+  createdBy: string;
+}
+
 interface HypersetLayoutProps {
   pagesUrl: string;
   isAdmin: boolean;
-  userRoles: string[];
+  userEmail: string;
 }
 
-export function HypersetLayout({ pagesUrl, isAdmin, userRoles }: HypersetLayoutProps) {
+export function HypersetLayout({ pagesUrl, isAdmin, userEmail }: HypersetLayoutProps) {
   const [pages, setPages] = useState<Page[]>([]);
+  const [projects, setProjects] = useState<ProjectApiItem[]>([]);
   const [selectedPage, setSelectedPage] = useState<Page | null>(null);
+  const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
   const [adminOpen, setAdminOpen] = useState(false);
   const [isPortraitMode, setIsPortraitMode] = useState(false);
 
-  // ── Dynamic pages discovery ──────────────────────────────────
-  const loadPages = useCallback(async () => {
+  // ── Dynamic data discovery ──────────────────────────────────
+  const loadData = useCallback(async () => {
     try {
-      const res = await fetch("/api/admin/pages", { credentials: "include" });
-      if (!res.ok) return;
-      const data = await res.json() as { pages: { name: string; active: boolean; allowedGroups: string[]; icon?: string; iconColor?: string }[] };
+      const [pagesRes, projRes] = await Promise.all([
+        fetch("/api/admin/pages", { credentials: "include" }),
+        fetch("/api/admin/projects", { credentials: "include" }),
+      ]);
+      if (!pagesRes.ok || !projRes.ok) return;
+      const pagesData = await pagesRes.json() as { pages: PageApiItem[] };
+      const projData = await projRes.json() as { projects: ProjectApiItem[] };
 
-      const filteredPages: Page[] = data.pages
-        .filter((p) => {
-          if (!p.active) return false;
-          if (p.allowedGroups.length === 0) return true;
-          return p.allowedGroups.some((g) => userRoles.includes(g));
-        })
-        .map((p) => ({ name: p.name, icon: p.icon, iconColor: p.iconColor }));
+      setProjects(projData.projects);
 
-      setPages((prev) => {
-        if (
-          prev.length === filteredPages.length &&
-          prev.every((p, i) => p.name === filteredPages[i].name)
-        ) return prev;
-        setSelectedPage((sel) => {
-          const stillExists = sel && filteredPages.some((p) => p.name === sel.name);
-          return stillExists ? sel : (filteredPages[0] ?? null);
+      // Determine which project to show: keep current if still exists, else first
+      setSelectedProjectId((prev) => {
+        const stillExists = projData.projects.some((p) => p.id === prev);
+        if (stillExists) return prev;
+        return projData.projects[0]?.id ?? null;
+      });
+
+      setSelectedProjectId((currentProjectId) => {
+        const projectId = currentProjectId ?? projData.projects[0]?.id ?? null;
+
+        const filteredPages: Page[] = pagesData.pages
+          .filter((p) => p.active && p.projectId === projectId)
+          .sort((a, b) => (a.order ?? 0) - (b.order ?? 0))
+          .map((p) => ({ name: p.name, icon: p.icon, iconColor: p.iconColor }));
+
+        setPages((prev) => {
+          if (
+            prev.length === filteredPages.length &&
+            prev.every((p, i) => p.name === filteredPages[i].name)
+          ) return prev;
+          setSelectedPage((sel) => {
+            const stillExists = sel && filteredPages.some((p) => p.name === sel.name);
+            return stillExists ? sel : (filteredPages[0] ?? null);
+          });
+          return filteredPages;
         });
-        return filteredPages;
+
+        return currentProjectId;
       });
     } catch {
       // Portal API unavailable — not a fatal error
     }
-  }, [userRoles]);
+  }, []);
 
   useEffect(() => {
-    loadPages();
-    const id = setInterval(loadPages, 10_000);
+    loadData();
+    const id = setInterval(loadData, 10_000);
     return () => clearInterval(id);
-  }, [loadPages]);
+  }, [loadData]);
+
+  // Re-filter pages when project selection changes
+  useEffect(() => {
+    loadData();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedProjectId]);
 
   useEffect(() => {
     const update = () => setIsPortraitMode(window.innerWidth < window.innerHeight);
@@ -65,6 +108,11 @@ export function HypersetLayout({ pagesUrl, isAdmin, userRoles }: HypersetLayoutP
     window.addEventListener("resize", update);
     return () => window.removeEventListener("resize", update);
   }, []);
+
+  const handleSelectProject = (id: string) => {
+    setSelectedProjectId(id);
+    setSelectedPage(null);
+  };
 
   return (
     <div
@@ -98,7 +146,7 @@ export function HypersetLayout({ pagesUrl, isAdmin, userRoles }: HypersetLayoutP
         ) : (
           <div style={{ color: "var(--md-on-surface)", opacity: 0.4, fontSize: 14, textAlign: "center" }}>
             <div style={{ fontSize: 32, marginBottom: 8 }}>◻</div>
-            No pages available
+            {projects.length === 0 ? "No projects available" : "No pages in this project"}
           </div>
         )}
       </div>
@@ -106,16 +154,25 @@ export function HypersetLayout({ pagesUrl, isAdmin, userRoles }: HypersetLayoutP
       {/* Service column */}
       <ServiceColumn
         isPortraitMode={isPortraitMode}
+        projects={projects}
+        selectedProjectId={selectedProjectId}
         pages={pages}
         selectedPage={selectedPage}
         isAdmin={isAdmin}
+        onSelectProject={handleSelectProject}
         onSelectPage={(page) => setSelectedPage(page)}
         onOpenAdmin={() => setAdminOpen(true)}
         onDisconnect={() => { window.location.href = "/api/auth/logout"; }}
       />
 
       {/* Admin modal */}
-      {adminOpen && <AdminModal onClose={() => setAdminOpen(false)} />}
+      {adminOpen && (
+        <AdminModal
+          onClose={() => { setAdminOpen(false); loadData(); }}
+          userEmail={userEmail}
+          isAdmin={isAdmin}
+        />
+      )}
     </div>
   );
 }

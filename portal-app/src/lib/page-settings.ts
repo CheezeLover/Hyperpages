@@ -1,16 +1,19 @@
 /**
  * Page settings store — PostgreSQL backed.
  *
- * Each page (active flag, allowed groups, icon) is stored as a JSONB row.
+ * Each page (active flag, allowed emails, icon, project, order) is stored as a JSONB row.
  * An in-memory cache per instance avoids redundant DB round-trips on reads.
  * Writes invalidate only the updated entry so other entries stay cached.
  */
 
 import { sql, ensureSchema } from "./db";
+import { canUserViewProject, type Project } from "./project-settings";
 
 export interface PageSettings {
   active: boolean;
-  allowedGroups: string[];
+  allowedEmails: string[];
+  projectId?: string;
+  order?: number;
   icon?: string;
   iconColor?: string;
 }
@@ -45,7 +48,7 @@ export async function getAllPageSettings(): Promise<Record<string, PageSettings>
 
 export async function getPageSettings(name: string): Promise<PageSettings> {
   const all = await getAllPageSettings();
-  return all[name] ?? { active: true, allowedGroups: [] };
+  return all[name] ?? { active: true, allowedEmails: [], order: 0 };
 }
 
 export async function setPageSettings(name: string, settings: PageSettings): Promise<void> {
@@ -65,9 +68,19 @@ export async function deletePageSettings(name: string): Promise<void> {
   if (_cache) delete _cache[name];
 }
 
-export async function canUserViewPage(name: string, userRoles: string[]): Promise<boolean> {
+export async function canUserViewPage(
+  name: string,
+  email: string,
+  isAdmin: boolean,
+  projects: Project[],
+): Promise<boolean> {
   const settings = await getPageSettings(name);
   if (!settings.active) return false;
-  if (settings.allowedGroups.length === 0) return true;
-  return userRoles.some((role) => settings.allowedGroups.includes(role));
+  if (settings.projectId) {
+    const project = projects.find((p) => p.id === settings.projectId);
+    if (!project) return false;
+    return canUserViewProject(project, email, isAdmin);
+  }
+  if (settings.allowedEmails.length === 0) return true;
+  return settings.allowedEmails.includes(email);
 }

@@ -84,5 +84,16 @@ async function _runMigrations(): Promise<void> {
     )
   `;
 
+  await sql`
+    CREATE TABLE IF NOT EXISTS hyperset_projects (
+      id             TEXT PRIMARY KEY,
+      name           TEXT NOT NULL,
+      icon           TEXT,
+      icon_color     TEXT,
+      allowed_emails TEXT[] NOT NULL DEFAULT '{}',
+      created_by     TEXT NOT NULL
+    )
+  `;
+
   console.log("[db] Schema ready");
 }

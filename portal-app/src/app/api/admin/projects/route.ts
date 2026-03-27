@@ -1,0 +1,167 @@
+import { NextRequest, NextResponse } from "next/server";
+import { getUserFromRequest, type HypersetUser } from "@/lib/auth";
+import {
+  getAllProjects,
+  createProject,
+  updateProject,
+  deleteProject,
+  canUserViewProject,
+  type Project,
+} from "@/lib/project-settings";
+import { checkRateLimit } from "@/lib/utils";
+
+const _rateLimitMap = new Map<string, number[]>();
+const RATE_LIMIT = 20;
+const RATE_WINDOW = 60_000;
+
+function requireAuth(request: NextRequest) {
+  const user = getUserFromRequest(request);
+  if (!user.email) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  return null;
+}
+
+function canManageProject(project: Project, user: HypersetUser): boolean {
+  return user.isAdmin || project.createdBy === user.email;
+}
+
+/** GET /api/admin/projects — list projects visible to the caller */
+export async function GET(request: NextRequest) {
+  const denied = requireAuth(request);
+  if (denied) return denied;
+
+  const user = getUserFromRequest(request);
+  if (!checkRateLimit(_rateLimitMap, RATE_LIMIT, RATE_WINDOW, user.email)) {
+    return NextResponse.json({ error: "Rate limit exceeded" }, { status: 429 });
+  }
+
+  const all = await getAllProjects();
+  const visible = all.filter((p) => canUserViewProject(p, user.email, user.isAdmin));
+  return NextResponse.json({ projects: visible });
+}
+
+/** POST /api/admin/projects — create a new project */
+export async function POST(request: NextRequest) {
+  const denied = requireAuth(request);
+  if (denied) return denied;
+
+  const user = getUserFromRequest(request);
+  if (!checkRateLimit(_rateLimitMap, RATE_LIMIT, RATE_WINDOW, user.email)) {
+    return NextResponse.json({ error: "Rate limit exceeded" }, { status: 429 });
+  }
+
+  try {
+    const body = await request.json() as {
+      name?: string;
+      icon?: string;
+      iconColor?: string;
+      allowedEmails?: string[];
+    };
+
+    const name = body.name?.trim();
+    if (!name) {
+      return NextResponse.json({ error: "Project name is required" }, { status: 400 });
+    }
+
+    // Ensure the creator is always in allowedEmails
+    const allowedEmails = Array.isArray(body.allowedEmails) ? body.allowedEmails : [];
+    if (!allowedEmails.includes(user.email)) {
+      allowedEmails.push(user.email);
+    }
+
+    const project = await createProject({
+      name,
+      icon: body.icon?.trim() || undefined,
+      iconColor: body.iconColor?.trim() || undefined,
+      allowedEmails,
+      createdBy: user.email,
+    });
+
+    return NextResponse.json({ ok: true, project });
+  } catch (e) {
+    console.error("[admin/projects] Failed to create project:", e);
+    return NextResponse.json({ error: "Failed to create project" }, { status: 500 });
+  }
+}
+
+/** PATCH /api/admin/projects — update a project (creator or admin) */
+export async function PATCH(request: NextRequest) {
+  const denied = requireAuth(request);
+  if (denied) return denied;
+
+  const user = getUserFromRequest(request);
+  if (!checkRateLimit(_rateLimitMap, RATE_LIMIT, RATE_WINDOW, user.email)) {
+    return NextResponse.json({ error: "Rate limit exceeded" }, { status: 429 });
+  }
+
+  try {
+    const body = await request.json() as {
+      id?: string;
+      name?: string;
+      icon?: string;
+      iconColor?: string;
+      allowedEmails?: string[];
+    };
+
+    const { id } = body;
+    if (!id) {
+      return NextResponse.json({ error: "Project id is required" }, { status: 400 });
+    }
+
+    const all = await getAllProjects();
+    const project = all.find((p) => p.id === id);
+    if (!project) {
+      return NextResponse.json({ error: "Project not found" }, { status: 404 });
+    }
+
+    if (!canManageProject(project, user)) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
+
+    await updateProject(id, {
+      name: body.name?.trim(),
+      icon: body.icon !== undefined ? (body.icon.trim() || undefined) : undefined,
+      iconColor: body.iconColor !== undefined ? (body.iconColor.trim() || undefined) : undefined,
+      allowedEmails: Array.isArray(body.allowedEmails) ? body.allowedEmails : undefined,
+    });
+
+    return NextResponse.json({ ok: true });
+  } catch (e) {
+    console.error("[admin/projects] Failed to update project:", e);
+    return NextResponse.json({ error: "Failed to update project" }, { status: 500 });
+  }
+}
+
+/** DELETE /api/admin/projects — delete a project (creator or admin) */
+export async function DELETE(request: NextRequest) {
+  const denied = requireAuth(request);
+  if (denied) return denied;
+
+  const user = getUserFromRequest(request);
+  if (!checkRateLimit(_rateLimitMap, RATE_LIMIT, RATE_WINDOW, user.email)) {
+    return NextResponse.json({ error: "Rate limit exceeded" }, { status: 429 });
+  }
+
+  try {
+    const body = await request.json() as { id?: string };
+    const { id } = body;
+    if (!id) {
+      return NextResponse.json({ error: "Project id is required" }, { status: 400 });
+    }
+
+    const all = await getAllProjects();
+    const project = all.find((p) => p.id === id);
+    if (!project) {
+      return NextResponse.json({ error: "Project not found" }, { status: 404 });
+    }
+
+    if (!canManageProject(project, user)) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
+
+    await deleteProject(id);
+    return NextResponse.json({ ok: true });
+  } catch (e) {
+    console.error("[admin/projects] Failed to delete project:", e);
+    return NextResponse.json({ error: "Failed to delete project" }, { status: 500 });
+  }
+}
