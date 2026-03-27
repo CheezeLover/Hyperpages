@@ -1,7 +1,7 @@
 /**
  * Page settings store — PostgreSQL backed.
  *
- * Each page (active flag, allowed emails, icon, project, order) is stored as a JSONB row.
+ * Each page (active flag, allowed emails, icon, projects, order) is stored as a JSONB row.
  * An in-memory cache per instance avoids redundant DB round-trips on reads.
  * Writes invalidate only the updated entry so other entries stay cached.
  */
@@ -12,7 +12,7 @@ import { canUserViewProject, type Project } from "./project-settings";
 export interface PageSettings {
   active: boolean;
   allowedEmails: string[];
-  projectId?: string;
+  projectIds?: string[];   // a page can belong to multiple projects
   order?: number;
   icon?: string;
   iconColor?: string;
@@ -34,13 +34,17 @@ export async function getAllPageSettings(): Promise<Record<string, PageSettings>
   `;
   const result: Record<string, PageSettings> = {};
   for (const row of rows) {
-    // postgres may return JSONB as a pre-parsed object or as a raw string
-    // depending on the query path — handle both defensively
-    const parsed: PageSettings =
+    const raw: Record<string, unknown> =
       typeof row.settings === "string"
-        ? (JSON.parse(row.settings) as PageSettings)
-        : (row.settings as PageSettings);
-    result[row.name] = parsed;
+        ? (JSON.parse(row.settings) as Record<string, unknown>)
+        : (row.settings as Record<string, unknown>);
+
+    // Migrate legacy single projectId → projectIds array
+    if (!raw.projectIds && raw.projectId) {
+      raw.projectIds = [raw.projectId as string];
+    }
+
+    result[row.name] = raw as PageSettings;
   }
   _cache = result;
   return result;
@@ -48,7 +52,7 @@ export async function getAllPageSettings(): Promise<Record<string, PageSettings>
 
 export async function getPageSettings(name: string): Promise<PageSettings> {
   const all = await getAllPageSettings();
-  return all[name] ?? { active: true, allowedEmails: [], order: 0 };
+  return all[name] ?? { active: true, allowedEmails: [], projectIds: [], order: 0 };
 }
 
 export async function setPageSettings(name: string, settings: PageSettings): Promise<void> {
@@ -58,7 +62,6 @@ export async function setPageSettings(name: string, settings: PageSettings): Pro
     VALUES (${name}, ${JSON.stringify(settings)}::jsonb)
     ON CONFLICT (name) DO UPDATE SET settings = EXCLUDED.settings
   `;
-  // Update cache in place so callers in the same process see the new value
   if (_cache) _cache[name] = settings;
 }
 
@@ -76,11 +79,18 @@ export async function canUserViewPage(
 ): Promise<boolean> {
   const settings = await getPageSettings(name);
   if (!settings.active) return false;
-  if (settings.projectId) {
-    const project = projects.find((p) => p.id === settings.projectId);
-    if (!project) return false;
-    return canUserViewProject(project, email, isAdmin);
+
+  const projectIds = settings.projectIds ?? [];
+  if (projectIds.length > 0) {
+    // User can view if they have access to ANY of the page's projects
+    return projectIds.some((pid) => {
+      const project = projects.find((p) => p.id === pid);
+      if (!project) return false;
+      return canUserViewProject(project, email, isAdmin);
+    });
   }
+
+  // Standalone page (no projects) — check page-level allowedEmails
   if (settings.allowedEmails.length === 0) return true;
   return settings.allowedEmails.includes(email);
 }

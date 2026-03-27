@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getUserFromRequest, type HypersetUser } from "@/lib/auth";
 import { getAllPageSettings, setPageSettings, deletePageSettings, getPageSettings, type PageSettings } from "@/lib/page-settings";
-import { getAllProjects, getProject } from "@/lib/project-settings";
+import { getAllProjects } from "@/lib/project-settings";
 import fs from "fs";
 import path from "path";
 
@@ -22,9 +22,13 @@ function requireAuth(request: NextRequest) {
 async function canManagePage(pageName: string, user: HypersetUser): Promise<boolean> {
   if (user.isAdmin) return true;
   const settings = await getPageSettings(pageName);
-  if (!settings.projectId) return false; // unassigned pages: admin only
-  const project = await getProject(settings.projectId);
-  return project?.createdBy === user.email;
+  const projectIds = settings.projectIds ?? [];
+  if (projectIds.length === 0) return false;
+  const allProjects = await getAllProjects();
+  return projectIds.some((pid) => {
+    const project = allProjects.find((p) => p.id === pid);
+    return project?.createdBy === user.email;
+  });
 }
 
 function scanPagesDir(): { name: string; hasBackend: boolean }[] {
@@ -68,7 +72,7 @@ export async function GET(request: NextRequest) {
     hasBackend: p.hasBackend,
     active: settings[p.name]?.active ?? true,
     allowedEmails: settings[p.name]?.allowedEmails ?? [],
-    projectId: settings[p.name]?.projectId,
+    projectIds: settings[p.name]?.projectIds ?? [],
     order: settings[p.name]?.order ?? 0,
     icon: settings[p.name]?.icon,
     iconColor: settings[p.name]?.iconColor,
@@ -88,7 +92,6 @@ export async function POST(request: NextRequest) {
   }
 
   const contentType = request.headers.get("content-type") ?? "";
-
   if (!contentType.includes("multipart/form-data")) {
     return NextResponse.json({ error: "Content-Type must be multipart/form-data" }, { status: 400 });
   }
@@ -98,41 +101,47 @@ export async function POST(request: NextRequest) {
     const name = formData.get("name")?.toString().trim();
     const htmlFile = formData.get("html") as File | null;
     const backendFile = formData.get("backend") as File | null;
-    const projectId = formData.get("projectId")?.toString().trim() || undefined;
+    const icon = formData.get("icon")?.toString().trim() || undefined;
+    const iconColor = formData.get("iconColor")?.toString().trim() || undefined;
+
+    // projectIds sent as JSON array string
+    let projectIds: string[] = [];
+    const projectIdsRaw = formData.get("projectIds")?.toString();
+    if (projectIdsRaw) {
+      try { projectIds = JSON.parse(projectIdsRaw) as string[]; } catch { /* ignore */ }
+    }
 
     if (!name) {
       return NextResponse.json({ error: "Page name is required" }, { status: 400 });
     }
-
     if (!/^[a-zA-Z0-9_-]+$/.test(name)) {
       return NextResponse.json({ error: "Page name must contain only letters, numbers, underscores and hyphens" }, { status: 400 });
     }
-
     if (!htmlFile) {
       return NextResponse.json({ error: "HTML file is required" }, { status: 400 });
     }
 
-    // Authorization: must be able to manage the target project (or isAdmin for unassigned)
-    if (projectId) {
-      const project = await getProject(projectId);
-      if (!project) {
-        return NextResponse.json({ error: "Project not found" }, { status: 404 });
-      }
-      if (!user.isAdmin && project.createdBy !== user.email) {
-        return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    // Authorization: must be creator of at least one target project, or isAdmin for unassigned
+    if (projectIds.length > 0) {
+      const allProjects = await getAllProjects();
+      const canUpload = projectIds.every((pid) => {
+        const project = allProjects.find((p) => p.id === pid);
+        if (!project) return false;
+        return user.isAdmin || project.createdBy === user.email;
+      });
+      if (!canUpload) {
+        return NextResponse.json({ error: "Forbidden: you can only add pages to your own projects" }, { status: 403 });
       }
     } else if (!user.isAdmin) {
       return NextResponse.json({ error: "Forbidden: only admins can add unassigned pages" }, { status: 403 });
     }
 
     const pageDir = path.join(PAGES_DIR, name);
-
     if (fs.existsSync(pageDir)) {
       return NextResponse.json({ error: `Page "${name}" already exists` }, { status: 400 });
     }
 
     fs.mkdirSync(pageDir, { recursive: true });
-
     const htmlBuffer = Buffer.from(await htmlFile.arrayBuffer());
     fs.writeFileSync(path.join(pageDir, "index.html"), htmlBuffer);
 
@@ -141,18 +150,11 @@ export async function POST(request: NextRequest) {
       fs.writeFileSync(path.join(pageDir, "backend.py"), backendBuffer);
     }
 
-    await setPageSettings(name, { active: true, allowedEmails: [], order: 0, projectId });
+    await setPageSettings(name, { active: true, allowedEmails: [], projectIds, order: 0, icon, iconColor });
 
     return NextResponse.json({
       ok: true,
-      page: {
-        name,
-        hasBackend: !!backendFile && backendFile.size > 0,
-        active: true,
-        allowedEmails: [],
-        projectId,
-        order: 0,
-      }
+      page: { name, hasBackend: !!backendFile && backendFile.size > 0, active: true, allowedEmails: [], projectIds, order: 0, icon, iconColor }
     });
   } catch (e) {
     console.error("[admin/pages] Failed to upload page:", e);
@@ -181,37 +183,27 @@ export async function PUT(request: NextRequest) {
     const htmlFile = formData.get("html") as File | null;
     const backendFile = formData.get("backend") as File | null;
 
-    if (!name) {
-      return NextResponse.json({ error: "Page name is required" }, { status: 400 });
-    }
+    if (!name) return NextResponse.json({ error: "Page name is required" }, { status: 400 });
 
     const pageDir = path.join(PAGES_DIR, name);
     if (!fs.existsSync(path.join(pageDir, "index.html"))) {
       return NextResponse.json({ error: `Page "${name}" not found` }, { status: 404 });
     }
-
     if (!await canManagePage(name, user)) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
     if (htmlFile && htmlFile.size > 0) {
-      const htmlBuffer = Buffer.from(await htmlFile.arrayBuffer());
-      fs.writeFileSync(path.join(pageDir, "index.html"), htmlBuffer);
+      fs.writeFileSync(path.join(pageDir, "index.html"), Buffer.from(await htmlFile.arrayBuffer()));
     }
-
     if (backendFile && backendFile.size > 0) {
-      const backendBuffer = Buffer.from(await backendFile.arrayBuffer());
-      fs.writeFileSync(path.join(pageDir, "backend.py"), backendBuffer);
+      fs.writeFileSync(path.join(pageDir, "backend.py"), Buffer.from(await backendFile.arrayBuffer()));
     } else if (formData.get("removeBackend") === "true") {
       const backendPath = path.join(pageDir, "backend.py");
-      if (fs.existsSync(backendPath)) {
-        fs.unlinkSync(backendPath);
-      }
+      if (fs.existsSync(backendPath)) fs.unlinkSync(backendPath);
     }
 
-    const hasBackend = fs.existsSync(path.join(pageDir, "backend.py"));
-
-    return NextResponse.json({ ok: true, hasBackend });
+    return NextResponse.json({ ok: true, hasBackend: fs.existsSync(path.join(pageDir, "backend.py")) });
   } catch (e) {
     console.error("[admin/pages] Failed to update page files:", e);
     return NextResponse.json({ error: "Failed to update page files" }, { status: 500 });
@@ -230,41 +222,37 @@ export async function PATCH(request: NextRequest) {
 
   try {
     const body = await request.json();
-    const { name, active, allowedEmails, projectId, order, icon, iconColor } = body as {
+    const { name, active, allowedEmails, projectIds, order, icon, iconColor } = body as {
       name: string;
       active?: boolean;
       allowedEmails?: string[];
-      projectId?: string | null;
+      projectIds?: string[];
       order?: number;
       icon?: string;
       iconColor?: string;
     };
 
-    if (!name) {
-      return NextResponse.json({ error: "Page name is required" }, { status: 400 });
-    }
+    if (!name) return NextResponse.json({ error: "Page name is required" }, { status: 400 });
 
     const pageDir = path.join(PAGES_DIR, name);
     if (!fs.existsSync(path.join(pageDir, "index.html"))) {
       return NextResponse.json({ error: `Page "${name}" not found` }, { status: 404 });
     }
-
     if (!await canManagePage(name, user)) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
-    const current = (await getAllPageSettings())[name] ?? { active: true, allowedEmails: [], order: 0 };
+    const current = (await getAllPageSettings())[name] ?? { active: true, allowedEmails: [], projectIds: [], order: 0 };
     const updated: PageSettings = {
       active: active !== undefined ? active : current.active,
       allowedEmails: allowedEmails !== undefined ? allowedEmails : (current.allowedEmails ?? []),
-      projectId: projectId !== undefined ? (projectId ?? undefined) : current.projectId,
+      projectIds: projectIds !== undefined ? projectIds : (current.projectIds ?? []),
       order: order !== undefined ? order : (current.order ?? 0),
       icon: icon !== undefined ? icon : current.icon,
       iconColor: iconColor !== undefined ? iconColor : current.iconColor,
     };
 
     await setPageSettings(name, updated);
-
     return NextResponse.json({ ok: true });
   } catch (e) {
     console.error("[admin/pages] Failed to update page:", e);
@@ -286,22 +274,18 @@ export async function DELETE(request: NextRequest) {
     const body = await request.json();
     const { name } = body as { name: string };
 
-    if (!name) {
-      return NextResponse.json({ error: "Page name is required" }, { status: 400 });
-    }
+    if (!name) return NextResponse.json({ error: "Page name is required" }, { status: 400 });
 
     const pageDir = path.join(PAGES_DIR, name);
     if (!fs.existsSync(path.join(pageDir, "index.html"))) {
       return NextResponse.json({ error: `Page "${name}" not found` }, { status: 404 });
     }
-
     if (!await canManagePage(name, user)) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
     fs.rmSync(pageDir, { recursive: true, force: true });
     await deletePageSettings(name);
-
     return NextResponse.json({ ok: true });
   } catch (e) {
     console.error("[admin/pages] Failed to delete page:", e);

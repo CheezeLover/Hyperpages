@@ -14,7 +14,7 @@ interface PageApiItem {
   name: string;
   active: boolean;
   allowedEmails: string[];
-  projectId?: string;
+  projectIds?: string[];
   order?: number;
   icon?: string;
   iconColor?: string;
@@ -67,7 +67,7 @@ export function HypersetLayout({ pagesUrl, isAdmin, userEmail }: HypersetLayoutP
         const projectId = currentProjectId ?? projData.projects[0]?.id ?? null;
 
         const filteredPages: Page[] = pagesData.pages
-          .filter((p) => p.active && p.projectId === projectId)
+          .filter((p) => p.active && projectId !== null && (p.projectIds ?? []).includes(projectId))
           .sort((a, b) => (a.order ?? 0) - (b.order ?? 0))
           .map((p) => ({ name: p.name, icon: p.icon, iconColor: p.iconColor }));
 
