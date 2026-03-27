@@ -10,6 +10,8 @@ export interface AdminModalProps {
   onClose: () => void;
   userEmail: string;
   isAdmin: boolean;
+  selectedProjectId: string | null;
+  onSelectProject: (id: string) => void;
 }
 
 interface PageInfo {
@@ -634,8 +636,17 @@ function ErrorBanner({ msg }: { msg: string }) {
 }
 
 // ── Main Admin Modal ───────────────────────────────────────────────────────────
-export function AdminModal({ onClose, userEmail, isAdmin }: AdminModalProps) {
+export function AdminModal({ onClose, userEmail, isAdmin, selectedProjectId, onSelectProject }: AdminModalProps) {
   const [activeTab, setActiveTab] = useState<"projects" | "pages">("projects");
+  const [projects, setProjects] = useState<ProjectInfo[]>([]);
+
+  // Load projects once so the selector strip is always populated
+  useEffect(() => {
+    fetch("/api/admin/projects")
+      .then((r) => r.json())
+      .then((d: { projects: ProjectInfo[] }) => setProjects(d.projects))
+      .catch(() => {/* non-fatal */});
+  }, []);
 
   return (
     <>
@@ -657,8 +668,37 @@ export function AdminModal({ onClose, userEmail, isAdmin }: AdminModalProps) {
             <button onClick={onClose} style={{ marginLeft: "auto", background: "none", border: "none", cursor: "pointer", color: "var(--md-on-surface)", opacity: 0.5, fontSize: 20, lineHeight: 1, padding: "4px 8px", borderRadius: 8 }}>×</button>
           </div>
 
+          {/* Active project selector strip */}
+          {projects.length > 0 && (
+            <div style={{ padding: "10px 24px 0", background: "var(--md-surface-cont)", display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+              <span style={{ fontSize: 11, fontWeight: 600, opacity: 0.45, color: "var(--md-on-surface)", textTransform: "uppercase", letterSpacing: "0.07em", flexShrink: 0 }}>Active project</span>
+              {projects.map((p) => {
+                const isActive = p.id === selectedProjectId;
+                return (
+                  <button
+                    key={p.id}
+                    onClick={() => onSelectProject(p.id)}
+                    title={p.name}
+                    style={{
+                      display: "flex", alignItems: "center", gap: 6,
+                      padding: "4px 10px", borderRadius: 20, fontSize: 12, fontWeight: isActive ? 600 : 400,
+                      border: isActive ? "2px solid var(--md-primary)" : "1px solid var(--md-outline-var)",
+                      background: isActive ? "var(--md-primary-cont)" : "transparent",
+                      color: isActive ? "var(--md-primary)" : "var(--md-on-surface)",
+                      cursor: "pointer", transition: "all 0.15s",
+                    }}
+                  >
+                    <span style={{ fontSize: 13 }}>{p.icon || p.name.charAt(0).toUpperCase()}</span>
+                    {p.name}
+                    {isActive && <span style={{ fontSize: 10, opacity: 0.7 }}>✓</span>}
+                  </button>
+                );
+              })}
+            </div>
+          )}
+
           {/* Tab bar */}
-          <div style={{ display: "flex", borderBottom: "1px solid var(--md-outline-var)", background: "var(--md-surface-cont)" }}>
+          <div style={{ display: "flex", borderBottom: "1px solid var(--md-outline-var)", background: "var(--md-surface-cont)", marginTop: projects.length > 0 ? 10 : 0 }}>
             {(["projects", "pages"] as const).map((tab) => (
               <button key={tab} onClick={() => setActiveTab(tab)}
                 style={{ flex: 1, padding: "12px 16px", background: "none", border: "none", borderBottom: activeTab === tab ? "2px solid var(--md-primary)" : "2px solid transparent", color: activeTab === tab ? "var(--md-primary)" : "var(--md-on-surface)", fontSize: 13, fontWeight: activeTab === tab ? 600 : 400, cursor: "pointer", opacity: activeTab === tab ? 1 : 0.6, transition: "all 0.15s", textTransform: "capitalize" }}>

@@ -154,12 +154,8 @@ export function HypersetLayout({ pagesUrl, isAdmin, userEmail }: HypersetLayoutP
       {/* Service column */}
       <ServiceColumn
         isPortraitMode={isPortraitMode}
-        projects={projects}
-        selectedProjectId={selectedProjectId}
         pages={pages}
         selectedPage={selectedPage}
-        isAdmin={isAdmin}
-        onSelectProject={handleSelectProject}
         onSelectPage={(page) => setSelectedPage(page)}
         onOpenAdmin={() => setAdminOpen(true)}
         onDisconnect={() => { window.location.href = "/api/auth/logout"; }}
@@ -171,6 +167,8 @@ export function HypersetLayout({ pagesUrl, isAdmin, userEmail }: HypersetLayoutP
           onClose={() => { setAdminOpen(false); loadData(); }}
           userEmail={userEmail}
           isAdmin={isAdmin}
+          selectedProjectId={selectedProjectId}
+          onSelectProject={handleSelectProject}
         />
       )}
     </div>
