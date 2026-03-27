@@ -18,6 +18,7 @@ interface PageApiItem {
   order?: number;
   icon?: string;
   iconColor?: string;
+  projectOverrides?: Record<string, { active: boolean; order: number }>;
 }
 
 interface ProjectApiItem {
@@ -67,8 +68,18 @@ export function HypersetLayout({ pagesUrl, isAdmin, userEmail }: HypersetLayoutP
         const projectId = currentProjectId ?? projData.projects[0]?.id ?? null;
 
         const filteredPages: Page[] = pagesData.pages
-          .filter((p) => p.active && projectId !== null && (p.projectIds ?? []).includes(projectId))
-          .sort((a, b) => (a.order ?? 0) - (b.order ?? 0))
+          .filter((p) => {
+            if (projectId === null) return false;
+            if (!(p.projectIds ?? []).includes(projectId)) return false;
+            // Per-project active flag; fall back to global active (defaults true)
+            const override = p.projectOverrides?.[projectId];
+            return override !== undefined ? override.active : (p.active ?? true);
+          })
+          .sort((a, b) => {
+            const oa = a.projectOverrides?.[projectId!]?.order ?? a.order ?? 0;
+            const ob = b.projectOverrides?.[projectId!]?.order ?? b.order ?? 0;
+            return oa - ob;
+          })
           .map((p) => ({ name: p.name, icon: p.icon, iconColor: p.iconColor }));
 
         setPages((prev) => {

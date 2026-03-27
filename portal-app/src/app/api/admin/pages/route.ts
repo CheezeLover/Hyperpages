@@ -22,6 +22,7 @@ function requireAuth(request: NextRequest) {
 async function canManagePage(pageName: string, user: HypersetUser): Promise<boolean> {
   if (user.isAdmin) return true;
   const settings = await getPageSettings(pageName);
+  if (settings.createdBy === user.email) return true;
   const projectIds = settings.projectIds ?? [];
   if (projectIds.length === 0) return false;
   const allProjects = await getAllProjects();
@@ -77,6 +78,7 @@ export async function GET(request: NextRequest) {
     icon: settings[p.name]?.icon,
     iconColor: settings[p.name]?.iconColor,
     createdBy: settings[p.name]?.createdBy,
+    projectOverrides: settings[p.name]?.projectOverrides ?? {},
   }));
 
   return NextResponse.json({ pages: pagesWithMeta });
@@ -154,11 +156,11 @@ export async function POST(request: NextRequest) {
     // Creator is always added to allowedEmails
     const creatorEmail = user.email;
     const pageAllowedEmails = creatorEmail ? [creatorEmail] : [];
-    await setPageSettings(name, { active: true, allowedEmails: pageAllowedEmails, projectIds, order: 0, icon, iconColor, createdBy: creatorEmail });
+    await setPageSettings(name, { active: true, allowedEmails: pageAllowedEmails, projectIds, order: 0, icon, iconColor, createdBy: creatorEmail, projectOverrides: {} });
 
     return NextResponse.json({
       ok: true,
-      page: { name, hasBackend: !!backendFile && backendFile.size > 0, active: true, allowedEmails: pageAllowedEmails, projectIds, order: 0, icon, iconColor, createdBy: creatorEmail }
+      page: { name, hasBackend: !!backendFile && backendFile.size > 0, active: true, allowedEmails: pageAllowedEmails, projectIds, order: 0, icon, iconColor, createdBy: creatorEmail, projectOverrides: {} }
     });
   } catch (e) {
     console.error("[admin/pages] Failed to upload page:", e);
@@ -226,7 +228,7 @@ export async function PATCH(request: NextRequest) {
 
   try {
     const body = await request.json();
-    const { name, active, allowedEmails, projectIds, order, icon, iconColor } = body as {
+    const { name, active, allowedEmails, projectIds, order, icon, iconColor, projectId } = body as {
       name: string;
       active?: boolean;
       allowedEmails?: string[];
@@ -234,6 +236,8 @@ export async function PATCH(request: NextRequest) {
       order?: number;
       icon?: string;
       iconColor?: string;
+      /** When set, active/order are written as per-project overrides instead of global fields. */
+      projectId?: string;
     };
 
     if (!name) return NextResponse.json({ error: "Page name is required" }, { status: 400 });
@@ -246,20 +250,36 @@ export async function PATCH(request: NextRequest) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
-    const current = (await getAllPageSettings())[name] ?? { active: true, allowedEmails: [], projectIds: [], order: 0 };
+    const current = (await getAllPageSettings())[name] ?? { active: true, allowedEmails: [], projectIds: [], projectOverrides: {} };
     const finalEmails = allowedEmails !== undefined ? [...allowedEmails] : [...(current.allowedEmails ?? [])];
     // Protect creator: ensure their email is never removed from the list
     if (current.createdBy && !finalEmails.includes(current.createdBy)) {
       finalEmails.push(current.createdBy);
     }
+
+    const currentOverrides = current.projectOverrides ?? {};
+    let nextOverrides = currentOverrides;
+    if (projectId !== undefined && (active !== undefined || order !== undefined)) {
+      // Per-project active/order override
+      const cur = currentOverrides[projectId] ?? { active: true, order: 0 };
+      nextOverrides = {
+        ...currentOverrides,
+        [projectId]: {
+          active: active !== undefined ? active : cur.active,
+          order: order !== undefined ? order : cur.order,
+        },
+      };
+    }
+
     const updated: PageSettings = {
-      active: active !== undefined ? active : current.active,
+      active: projectId !== undefined ? (current.active ?? true) : (active !== undefined ? active : (current.active ?? true)),
       allowedEmails: finalEmails,
       projectIds: projectIds !== undefined ? projectIds : (current.projectIds ?? []),
-      order: order !== undefined ? order : (current.order ?? 0),
+      order: projectId !== undefined ? (current.order ?? 0) : (order !== undefined ? order : (current.order ?? 0)),
       icon: icon !== undefined ? icon : current.icon,
       iconColor: iconColor !== undefined ? iconColor : current.iconColor,
       createdBy: current.createdBy,
+      projectOverrides: nextOverrides,
     };
 
     await setPageSettings(name, updated);

@@ -9,13 +9,17 @@ import { sql, ensureSchema } from "./db";
 import { canUserViewProject, type Project } from "./project-settings";
 
 export interface PageSettings {
-  active: boolean;
+  /** Global kill-switch (defaults true). Per-project visibility is in projectOverrides. */
+  active?: boolean;
   allowedEmails: string[];
   projectIds?: string[];
+  /** Legacy global order — superseded by projectOverrides per-project order. */
   order?: number;
   icon?: string;
   iconColor?: string;
   createdBy?: string;
+  /** Per-project active flag and display order. */
+  projectOverrides?: Record<string, { active: boolean; order: number }>;
 }
 
 export interface PageMetadata extends PageSettings {
@@ -51,7 +55,7 @@ export async function getAllPageSettings(): Promise<Record<string, PageSettings>
 
 export async function getPageSettings(name: string): Promise<PageSettings> {
   const all = await getAllPageSettings();
-  return all[name] ?? { active: true, allowedEmails: [], projectIds: [], order: 0 };
+  return all[name] ?? { active: true, allowedEmails: [], projectIds: [], projectOverrides: {} };
 }
 
 export async function setPageSettings(name: string, settings: PageSettings): Promise<void> {
@@ -77,7 +81,8 @@ export async function canUserViewPage(
   projects: Project[],
 ): Promise<boolean> {
   const settings = await getPageSettings(name);
-  if (!settings.active) return false;
+  // Explicit global disable (active===false) blocks the page entirely
+  if (settings.active === false) return false;
   if (isAdmin) return true;
 
   // Creator always has access to their own page
