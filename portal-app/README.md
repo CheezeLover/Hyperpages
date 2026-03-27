@@ -68,27 +68,44 @@ The `hyperset_page_settings.settings` JSONB column absorbs all new fields withou
 
 ## API Routes
 
-| Method | Route | Auth required | Description |
-|--------|-------|--------------|-------------|
-| `GET` | `/api/config` | No | Public config: Superset URL, Pages URL, current user info |
-| `GET` | `/api/chat` | Yes | Health check, MCP reachability probe |
-| `POST` | `/api/chat` | Yes | Streaming chat completion with MCP tool calls |
-| `GET` | `/api/admin` | Admin | Effective LLM settings |
-| `POST` | `/api/admin` | Admin | Save runtime LLM settings |
-| `DELETE` | `/api/admin` | Admin | Reset to env defaults |
-| `PATCH` | `/api/admin` | Admin | Validate LLM API credentials |
-| `GET` | `/api/cleanup-config` | No | Cleanup delay in minutes (consumed by MCP server) |
-| `POST` | `/api/chart-promote` | Yes | Promote an AI temporary chart to permanent |
-| `GET` | `/api/auth/logout` | No | Clear session and redirect to auth portal |
-| `GET` | `/api/admin/projects` | Yes | List projects visible to the caller |
-| `POST` | `/api/admin/projects` | Yes | Create a project (any authenticated user) |
-| `PATCH` | `/api/admin/projects` | Yes | Update a project (creator or admin) |
-| `DELETE` | `/api/admin/projects` | Yes | Delete a project (creator or admin) |
-| `GET` | `/api/admin/pages` | Yes | List all pages with settings |
-| `POST` | `/api/admin/pages` | Yes | Upload a new page (multipart/form-data) |
-| `PUT` | `/api/admin/pages` | Yes | Replace page files (multipart/form-data) |
-| `PATCH` | `/api/admin/pages` | Yes | Update page settings (active, emails, projects, order, icon) |
-| `DELETE` | `/api/admin/pages` | Yes | Delete a page and its directory |
+**Public**
+
+| Method | Route | Description |
+|--------|-------|-------------|
+| `GET` | `/api/config` | Superset URL, Pages URL, current user info |
+| `GET` | `/api/cleanup-config` | Cleanup delay in minutes (consumed by MCP server) |
+| `GET` | `/api/auth/logout` | Clear session and redirect to auth portal |
+
+**Chat (authenticated)**
+
+| Method | Route | Description |
+|--------|-------|-------------|
+| `GET` | `/api/chat` | MCP reachability probe |
+| `POST` | `/api/chat` | Streaming chat completion with MCP tool calls |
+| `POST` | `/api/chart-promote` | Promote an AI temporary chart to permanent |
+
+**LLM settings (admin only)**
+
+| Method | Route | Description |
+|--------|-------|-------------|
+| `GET` | `/api/admin` | Effective LLM settings |
+| `POST` | `/api/admin` | Save runtime LLM settings |
+| `DELETE` | `/api/admin` | Reset to env defaults |
+| `PATCH` | `/api/admin` | Validate LLM API credentials |
+
+**Projects & pages (authenticated; mutations scoped by ownership)**
+
+| Method | Route | Description |
+|--------|-------|-------------|
+| `GET` | `/api/admin/projects` | List projects visible to the caller |
+| `POST` | `/api/admin/projects` | Create a project |
+| `PATCH` | `/api/admin/projects` | Update a project (creator or admin) |
+| `DELETE` | `/api/admin/projects` | Delete a project (creator or admin) |
+| `GET` | `/api/admin/pages` | List all pages with settings |
+| `POST` | `/api/admin/pages` | Upload a new page (multipart/form-data) |
+| `PUT` | `/api/admin/pages` | Replace page files (multipart/form-data) |
+| `PATCH` | `/api/admin/pages` | Update page settings (active, emails, projects, order, icon) |
+| `DELETE` | `/api/admin/pages` | Delete a page and its directory |
 
 ---
 
