@@ -142,6 +142,45 @@ export function HypersetLayout({ pagesUrl, isAdmin, userEmail }: HypersetLayoutP
     setSelectedPage(null);
   };
 
+  // ── PDF export ────────────────────────────────────────────────────────────────
+  // Opens a new window with every visible page in order inside a full-size iframe,
+  // waits for all frames to load, then triggers window.print() so the user can
+  // save as PDF. No external libraries needed.
+  const handleExportPdf = () => {
+    if (pages.length === 0) return;
+    const W = window.innerWidth;
+    const H = window.innerHeight;
+
+    const win = window.open("", "_blank", `width=${W},height=${H}`);
+    if (!win) return;
+
+    const body = pages
+      .map((p, i) =>
+        `<div style="width:${W}px;height:${H}px;overflow:hidden;${i < pages.length - 1 ? "page-break-after:always;" : ""}">` +
+        `<iframe src="${pagesUrl}/${encodeURIComponent(p.name)}" ` +
+        `style="width:${W}px;height:${H}px;border:none;display:block;" title="${p.name}"></iframe>` +
+        `</div>`
+      )
+      .join("");
+
+    win.document.write(
+      `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Export</title>` +
+      `<style>*{margin:0;padding:0;box-sizing:border-box}` +
+      `@page{size:${W}px ${H}px;margin:0}` +
+      `html,body{width:${W}px;background:#fff}</style>` +
+      `</head><body>${body}</body></html>`
+    );
+    win.document.close();
+
+    // Print once all iframes have loaded, with a 5 s safety fallback
+    const iframes = Array.from(win.document.querySelectorAll("iframe"));
+    let remaining = iframes.length;
+    const doPrint = () => { win.focus(); win.print(); };
+    const onLoad = () => { if (--remaining === 0) setTimeout(doPrint, 300); };
+    iframes.forEach((f) => f.addEventListener("load", onLoad));
+    setTimeout(() => { if (remaining > 0) doPrint(); }, 5000);
+  };
+
   return (
     <div
       id="hyperset-container"
@@ -185,6 +224,7 @@ export function HypersetLayout({ pagesUrl, isAdmin, userEmail }: HypersetLayoutP
         pages={pages}
         selectedPage={selectedPage}
         onSelectPage={(page) => setSelectedPage(page)}
+        onExportPdf={handleExportPdf}
         onOpenAdmin={() => setAdminOpen(true)}
         onDisconnect={() => { window.location.href = "/api/auth/logout"; }}
       />
