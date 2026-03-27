@@ -35,14 +35,15 @@ interface HypersetLayoutProps {
 }
 
 export function HypersetLayout({ pagesUrl, isAdmin, userEmail }: HypersetLayoutProps) {
-  const [pages, setPages] = useState<Page[]>([]);
+  const [allPages, setAllPages] = useState<PageApiItem[]>([]);
   const [projects, setProjects] = useState<ProjectApiItem[]>([]);
+  const [pages, setPages] = useState<Page[]>([]);
   const [selectedPage, setSelectedPage] = useState<Page | null>(null);
   const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
   const [adminOpen, setAdminOpen] = useState(false);
   const [isPortraitMode, setIsPortraitMode] = useState(false);
 
-  // ── Dynamic data discovery ──────────────────────────────────
+  // ── Fetch raw data; never derives display state (no double setState tricks) ──
   const loadData = useCallback(async () => {
     try {
       const [pagesRes, projRes] = await Promise.all([
@@ -50,60 +51,53 @@ export function HypersetLayout({ pagesUrl, isAdmin, userEmail }: HypersetLayoutP
         fetch("/api/admin/projects", { credentials: "include" }),
       ]);
       if (!pagesRes.ok || !projRes.ok) return;
-      const pagesData = await pagesRes.json() as { pages: PageApiItem[] };
-      const projData = await projRes.json() as { projects: ProjectApiItem[] };
-
-      setProjects(projData.projects);
-
-      // Determine which project to show: keep current if still exists, else first
+      const { pages: pageItems } = await pagesRes.json() as { pages: PageApiItem[] };
+      const { projects: projectItems } = await projRes.json() as { projects: ProjectApiItem[] };
+      setProjects(projectItems);
+      setAllPages(pageItems);
+      // Keep current project if it still exists; otherwise fall back to first
       setSelectedProjectId((prev) => {
-        const stillExists = projData.projects.some((p) => p.id === prev);
-        if (stillExists) return prev;
-        return projData.projects[0]?.id ?? null;
-      });
-
-      setSelectedProjectId((currentProjectId) => {
-        const projectId = currentProjectId ?? projData.projects[0]?.id ?? null;
-
-        const filteredPages: Page[] = pagesData.pages
-          .filter((p) =>
-            projectId !== null &&
-            p.projectId === projectId &&
-            p.active !== false
-          )
-          .sort((a, b) => (a.order ?? 0) - (b.order ?? 0))
-          .map((p) => ({ name: p.name, icon: p.icon, iconColor: p.iconColor }));
-
-        setPages((prev) => {
-          if (
-            prev.length === filteredPages.length &&
-            prev.every((p, i) => p.name === filteredPages[i].name)
-          ) return prev;
-          setSelectedPage((sel) => {
-            const stillExists = sel && filteredPages.some((p) => p.name === sel.name);
-            return stillExists ? sel : (filteredPages[0] ?? null);
-          });
-          return filteredPages;
-        });
-
-        return currentProjectId;
+        const stillExists = projectItems.some((p) => p.id === prev);
+        return stillExists ? prev : (projectItems[0]?.id ?? null);
       });
     } catch {
       // Portal API unavailable — not a fatal error
     }
   }, []);
 
+  // ── Derive visible sidebar pages whenever raw data or selection changes ───────
+  // Pure local computation — no network call, no double-fetch on project switch.
+  useEffect(() => {
+    if (selectedProjectId === null) {
+      setPages([]);
+      setSelectedPage(null);
+      return;
+    }
+    const filtered = allPages
+      .filter((p) => p.projectId === selectedProjectId && p.active !== false)
+      .sort((a, b) => (a.order ?? 0) - (b.order ?? 0))
+      .map((p) => ({ name: p.name, icon: p.icon, iconColor: p.iconColor }));
+
+    // Avoid re-renders when the visible list hasn't changed
+    setPages((prev) => {
+      const unchanged =
+        prev.length === filtered.length &&
+        prev.every((p, i) => p.name === filtered[i].name);
+      return unchanged ? prev : filtered;
+    });
+    // Keep selected page if it still exists in the new list
+    setSelectedPage((sel) => {
+      const stillExists = sel !== null && filtered.some((p) => p.name === sel.name);
+      return stillExists ? sel : (filtered[0] ?? null);
+    });
+  }, [selectedProjectId, allPages]);
+
+  // ── Polling — fetch raw data on mount, then every 10 s ───────────────────────
   useEffect(() => {
     loadData();
     const id = setInterval(loadData, 10_000);
     return () => clearInterval(id);
   }, [loadData]);
-
-  // Re-filter pages when project selection changes
-  useEffect(() => {
-    loadData();
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedProjectId]);
 
   useEffect(() => {
     const update = () => setIsPortraitMode(window.innerWidth < window.innerHeight);
@@ -172,6 +166,7 @@ export function HypersetLayout({ pagesUrl, isAdmin, userEmail }: HypersetLayoutP
           isAdmin={isAdmin}
           selectedProjectId={selectedProjectId}
           onSelectProject={handleSelectProject}
+          projects={projects}
         />
       )}
     </div>

@@ -12,6 +12,8 @@ export interface AdminModalProps {
   isAdmin: boolean;
   selectedProjectId: string | null;
   onSelectProject: (id: string) => void;
+  /** Projects already fetched by the parent layout — no extra request needed. */
+  projects: ProjectInfo[];
 }
 
 interface PageInfo {
@@ -283,10 +285,11 @@ function ProjectsTab({ userEmail, isAdmin }: { userEmail: string; isAdmin: boole
         fetch("/api/admin/pages"),
         fetch("/api/admin/projects"),
       ]);
-      const pagesData = await pagesRes.json() as { pages: PageInfo[] };
-      const projData = await projRes.json() as { projects: ProjectInfo[] };
-      setPages(pagesData.pages);
-      setProjects(projData.projects);
+      if (!pagesRes.ok || !projRes.ok) { setError("Failed to load data"); return; }
+      const { pages: pageItems } = await pagesRes.json() as { pages: PageInfo[] };
+      const { projects: projectItems } = await projRes.json() as { projects: ProjectInfo[] };
+      setPages(pageItems);
+      setProjects(projectItems);
     } catch {
       setError("Failed to load data");
     } finally {
@@ -385,21 +388,28 @@ function ProjectsTab({ userEmail, isAdmin }: { userEmail: string; isAdmin: boole
     names.splice(idx, 1);
     names.splice(newIdx, 0, pageName);
 
+    // Optimistic update — reflects change instantly in the UI
+    setPages((prev) => prev.map((p) => {
+      const order = names.indexOf(p.name);
+      return order >= 0 ? { ...p, order } : p;
+    }));
+
     try {
-      await Promise.all(
-        names.map((name, i) =>
-          fetch("/api/admin/pages", {
-            method: "PATCH",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ name, order: i }),
-          })
-        )
-      );
+      // Single bulk PATCH instead of N individual requests
+      const res = await fetch("/api/admin/pages", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ orders: names.map((name, i) => ({ name, order: i })) }),
+      });
+      if (!res.ok) throw new Error(((await res.json()) as { error?: string }).error ?? "Reorder failed");
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Failed to update order");
+      // Revert to original order on failure
       setPages((prev) => prev.map((p) => {
-        const order = names.indexOf(p.name);
-        return order >= 0 ? { ...p, order } : p;
+        const original = projectPages.find((pp) => pp.name === p.name);
+        return original !== undefined ? { ...p, order: original.order ?? 0 } : p;
       }));
-    } catch { setError("Failed to update order"); }
+    }
   };
 
   const handleDeletePage = async (name: string) => {
@@ -657,15 +667,7 @@ function ProjectsTab({ userEmail, isAdmin }: { userEmail: string; isAdmin: boole
 }
 
 // ── Main Admin Modal ───────────────────────────────────────────────────────────
-export function AdminModal({ onClose, userEmail, isAdmin, selectedProjectId, onSelectProject }: AdminModalProps) {
-  const [projects, setProjects] = useState<ProjectInfo[]>([]);
-
-  useEffect(() => {
-    fetch("/api/admin/projects")
-      .then((r) => r.json())
-      .then((d: { projects: ProjectInfo[] }) => setProjects(d.projects))
-      .catch(() => { /* non-fatal */ });
-  }, []);
+export function AdminModal({ onClose, userEmail, isAdmin, selectedProjectId, onSelectProject, projects }: AdminModalProps) {
 
   return (
     <>

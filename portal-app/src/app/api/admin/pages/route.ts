@@ -9,8 +9,8 @@ import { checkRateLimit } from "@/lib/utils";
 const PAGES_DIR = process.env.PAGES_DIR ?? path.join(process.cwd(), "pages");
 
 const _rateLimitMap = new Map<string, number[]>();
-const RATE_LIMIT = 20;
-const RATE_WINDOW = 60_000;
+const RATE_LIMIT = 60;        // requests per user per window
+const RATE_WINDOW = 60_000;   // 1 minute
 
 function requireAuth(request: NextRequest) {
   const user = getUserFromRequest(request);
@@ -185,7 +185,7 @@ export async function PUT(request: NextRequest) {
   }
 }
 
-/** PATCH /api/admin/pages — update page settings */
+/** PATCH /api/admin/pages — update one page's settings, or bulk-reorder pages in one request */
 export async function PATCH(request: NextRequest) {
   const denied = requireAuth(request);
   if (denied) return denied;
@@ -196,7 +196,29 @@ export async function PATCH(request: NextRequest) {
   }
 
   try {
-    const body = await request.json();
+    const body = await request.json() as Record<string, unknown>;
+
+    // ── Bulk reorder: { orders: [{ name, order }] } ──────────────────────────
+    // Replaces N sequential PATCH calls with a single atomic request.
+    if (Array.isArray(body.orders)) {
+      const orders = body.orders as { name: string; order: number }[];
+      const allSettings = await getAllPageSettings();
+      // Permission check per page (all cached after the first DB hit)
+      for (const { name } of orders) {
+        if (!await canManagePage(name, user)) {
+          return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+        }
+      }
+      await Promise.all(
+        orders.map(({ name, order }) => {
+          const current = allSettings[name] ?? {};
+          return setPageSettings(name, { ...current, order });
+        })
+      );
+      return NextResponse.json({ ok: true });
+    }
+
+    // ── Single page update ────────────────────────────────────────────────────
     const { name, active, projectId, order, icon, iconColor } = body as {
       name: string;
       active?: boolean;
@@ -208,25 +230,22 @@ export async function PATCH(request: NextRequest) {
 
     if (!name) return NextResponse.json({ error: "Page name is required" }, { status: 400 });
 
-    const pageDir = path.join(PAGES_DIR, name);
-    if (!fs.existsSync(path.join(pageDir, "index.html"))) {
+    if (!fs.existsSync(path.join(PAGES_DIR, name, "index.html"))) {
       return NextResponse.json({ error: `Page "${name}" not found` }, { status: 404 });
     }
     if (!await canManagePage(name, user)) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
-    const current = (await getAllPageSettings())[name] ?? { active: true, order: 0 };
-    const updated: PageSettings = {
+    const current = (await getAllPageSettings())[name] ?? {};
+    await setPageSettings(name, {
       active: active !== undefined ? active : (current.active ?? true),
       projectId: projectId !== undefined ? projectId : current.projectId,
       order: order !== undefined ? order : (current.order ?? 0),
       icon: icon !== undefined ? icon : current.icon,
       iconColor: iconColor !== undefined ? iconColor : current.iconColor,
       createdBy: current.createdBy,
-    };
-
-    await setPageSettings(name, updated);
+    });
     return NextResponse.json({ ok: true });
   } catch (e) {
     console.error("[admin/pages] Failed to update page:", e);
