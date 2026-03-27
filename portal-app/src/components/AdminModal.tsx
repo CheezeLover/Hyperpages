@@ -18,7 +18,6 @@ interface PageInfo {
   name: string;
   hasBackend: boolean;
   active?: boolean;
-  allowedEmails: string[];
   projectId?: string;
   order?: number;
   icon?: string;
@@ -66,9 +65,6 @@ function PageEditModal({
 }) {
   const [editIcon, setEditIcon] = useState(page.icon || "");
   const [editIconColor, setEditIconColor] = useState(page.iconColor || "");
-  const [editEmails, setEditEmails] = useState(
-    page.allowedEmails.filter((e) => e !== page.createdBy).join(", ")
-  );
   const [editProjectId, setEditProjectId] = useState<string>(page.projectId ?? "");
   const [editHtmlFile, setEditHtmlFile] = useState<File | null>(null);
   const [editBackendFile, setEditBackendFile] = useState<File | null>(null);
@@ -92,18 +88,14 @@ function PageEditModal({
         if (!res.ok) throw new Error(((await res.json()) as { error?: string }).error ?? "File update failed");
       }
       // 2. Update settings
-      const emails = editEmails.split(",").map((e) => e.trim()).filter(Boolean);
-      const icon = editIcon.trim() || undefined;
-      const iconColor = editIconColor.trim() || undefined;
       const res = await fetch("/api/admin/pages", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           name: page.name,
-          icon,
-          iconColor,
-          allowedEmails: emails,
-          projectId: editProjectId || null,
+          icon: editIcon.trim() || undefined,
+          iconColor: editIconColor.trim() || undefined,
+          projectId: editProjectId || undefined,
         }),
       });
       if (!res.ok) throw new Error(((await res.json()) as { error?: string }).error ?? "Update failed");
@@ -121,7 +113,7 @@ function PageEditModal({
       style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", zIndex: 1001, display: "flex", alignItems: "center", justifyContent: "center" }}
       onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
     >
-      <div style={{ background: "var(--md-surface-cont)", borderRadius: 16, padding: 24, minWidth: 400, maxWidth: 520, width: "90%", maxHeight: "85vh", overflowY: "auto", boxShadow: "0 24px 48px rgba(0,0,0,0.3)" }}>
+      <div style={{ background: "var(--md-surface-cont)", borderRadius: 16, padding: 24, minWidth: 380, maxWidth: 500, width: "90%", maxHeight: "85vh", overflowY: "auto", boxShadow: "0 24px 48px rgba(0,0,0,0.3)" }}>
         <h3 style={{ fontSize: 16, fontWeight: 600, color: "var(--md-on-surface)", margin: "0 0 20px" }}>
           Edit: {page.name}
         </h3>
@@ -140,44 +132,23 @@ function PageEditModal({
             </div>
           </div>
 
-          {/* Project */}
-          <div>
-            <label style={labelStyle}>Project</label>
-            <select
-              value={editProjectId}
-              onChange={(e) => setEditProjectId(e.target.value)}
-              style={{ ...inputStyle, padding: "8px 12px" }}
-            >
-              <option value="">— No project —</option>
-              {visibleProjects.map((p) => (
-                <option key={p.id} value={p.id}>
-                  {p.icon ? `${p.icon} ` : ""}{p.name}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          {/* Direct email access */}
-          <div>
-            <label style={labelStyle}>Direct Access Emails</label>
-            {page.createdBy && (
-              <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 8, padding: "4px 8px", borderRadius: 6, background: "rgba(var(--md-primary-rgb, 103,80,164),0.08)", border: "1px solid var(--md-outline-var)" }}>
-                <span style={{ fontSize: 11, color: "var(--md-primary)", fontWeight: 600 }}>🔒</span>
-                <span style={{ fontSize: 12, color: "var(--md-on-surface)", opacity: 0.8 }}>{page.createdBy}</span>
-                <span style={{ fontSize: 10, opacity: 0.5, color: "var(--md-on-surface)", marginLeft: 2 }}>(creator — protected)</span>
-              </div>
-            )}
-            <textarea
-              value={editEmails}
-              onChange={(e) => setEditEmails(e.target.value)}
-              placeholder="alice@example.com, bob@example.com"
-              rows={2}
-              style={{ ...inputStyle, resize: "vertical" }}
-            />
-            <p style={{ fontSize: 11, opacity: 0.5, color: "var(--md-on-surface)", margin: "4px 0 0" }}>
-              Comma-separated. Leave empty to rely on project access only.
-            </p>
-          </div>
+          {/* Move to another project */}
+          {visibleProjects.length > 1 && (
+            <div>
+              <label style={labelStyle}>Project</label>
+              <select
+                value={editProjectId}
+                onChange={(e) => setEditProjectId(e.target.value)}
+                style={{ ...inputStyle, padding: "8px 12px" }}
+              >
+                {visibleProjects.map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {p.icon ? `${p.icon} ` : ""}{p.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
 
           {/* Files */}
           <div>
@@ -205,27 +176,21 @@ function PageEditModal({
   );
 }
 
-// ── Upload form (contextual to a project) ─────────────────────────────────────
+// ── Upload form (always tied to a specific project) ────────────────────────────
 function UploadForm({
-  defaultProjectId, projects, userEmail, isAdmin, onClose, onUploaded,
+  projectId, onClose, onUploaded,
 }: {
-  defaultProjectId: string | null;
-  projects: ProjectInfo[];
-  userEmail: string;
-  isAdmin: boolean;
+  projectId: string;
   onClose: () => void;
   onUploaded: () => void;
 }) {
   const [name, setName] = useState("");
   const [icon, setIcon] = useState("");
   const [iconColor, setIconColor] = useState("");
-  const [selectedProjectId, setSelectedProjectId] = useState<string>(defaultProjectId ?? "");
   const [htmlFile, setHtmlFile] = useState<File | null>(null);
   const [backendFile, setBackendFile] = useState<File | null>(null);
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState("");
-
-  const visibleProjects = isAdmin ? projects : projects.filter((p) => p.createdBy === userEmail);
 
   const handleUpload = async () => {
     if (!name.trim() || !htmlFile) { setError("Page name and HTML file are required"); return; }
@@ -235,7 +200,7 @@ function UploadForm({
       formData.append("name", name.trim());
       formData.append("html", htmlFile);
       if (backendFile) formData.append("backend", backendFile);
-      if (selectedProjectId) formData.append("projectId", selectedProjectId);
+      formData.append("projectId", projectId);
       if (icon.trim()) formData.append("icon", icon.trim());
       if (iconColor.trim()) formData.append("iconColor", iconColor.trim());
       const res = await fetch("/api/admin/pages", { method: "POST", body: formData });
@@ -268,23 +233,6 @@ function UploadForm({
             <input type="text" value={iconColor} onChange={(e) => setIconColor(e.target.value)} placeholder="#1a73e8" style={{ ...inputStyle, width: "100%" }} />
           </div>
         </div>
-        {visibleProjects.length > 0 && (
-          <div>
-            <label style={labelStyle}>Project</label>
-            <select
-              value={selectedProjectId}
-              onChange={(e) => setSelectedProjectId(e.target.value)}
-              style={{ ...inputStyle, padding: "8px 12px" }}
-            >
-              {isAdmin && <option value="">— No project —</option>}
-              {visibleProjects.map((p) => (
-                <option key={p.id} value={p.id}>
-                  {p.icon ? `${p.icon} ` : ""}{p.name}
-                </option>
-              ))}
-            </select>
-          </div>
-        )}
         <div>
           <label style={labelStyle}>HTML File *</label>
           <input type="file" accept=".html" onChange={(e) => setHtmlFile(e.target.files?.[0] ?? null)} style={{ fontSize: 12, color: "var(--md-on-surface)" }} />
@@ -302,7 +250,7 @@ function UploadForm({
   );
 }
 
-// ── Combined Projects + Pages Tab ──────────────────────────────────────────────
+// ── Projects + Pages Tab ───────────────────────────────────────────────────────
 function ProjectsTab({ userEmail, isAdmin }: { userEmail: string; isAdmin: boolean }) {
   const [projects, setProjects] = useState<ProjectInfo[]>([]);
   const [pages, setPages] = useState<PageInfo[]>([]);
@@ -325,7 +273,7 @@ function ProjectsTab({ userEmail, isAdmin }: { userEmail: string; isAdmin: boole
 
   // Page state
   const [editModalPage, setEditModalPage] = useState<PageInfo | null>(null);
-  const [uploadForSection, setUploadForSection] = useState<string | null>(null);
+  const [uploadForProject, setUploadForProject] = useState<string | null>(null);
   const [deletingPage, setDeletingPage] = useState<string | null>(null);
   const [showTemplates, setShowTemplates] = useState(false);
 
@@ -427,10 +375,6 @@ function ProjectsTab({ userEmail, isAdmin }: { userEmail: string; isAdmin: boole
     } catch { setError("Failed to update page"); }
   };
 
-  /**
-   * Reorder a page within a project by swapping with the adjacent page.
-   * Normalises all orders to sequential integers before saving.
-   */
   const handleMoveOrder = async (pageName: string, projectPages: PageInfo[], delta: number) => {
     const idx = projectPages.findIndex((p) => p.name === pageName);
     if (idx < 0) return;
@@ -468,8 +412,8 @@ function ProjectsTab({ userEmail, isAdmin }: { userEmail: string; isAdmin: boole
 
   if (loading) return <Spinner />;
 
-  const canAddPage = isAdmin || projects.some((p) => p.createdBy === userEmail);
-  const unassignedPages = pages.filter((p) => !p.projectId);
+  const canAddToProject = (project: ProjectInfo) =>
+    isAdmin || project.createdBy === userEmail;
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
@@ -493,7 +437,6 @@ function ProjectsTab({ userEmail, isAdmin }: { userEmail: string; isAdmin: boole
           Projects ({projects.length})
         </h3>
         <div style={{ display: "flex", gap: 8 }}>
-          {/* Templates dropdown */}
           <div style={{ position: "relative" }}>
             <button
               onClick={() => setShowTemplates(!showTemplates)}
@@ -563,7 +506,7 @@ function ProjectsTab({ userEmail, isAdmin }: { userEmail: string; isAdmin: boole
             const projectPages = pages
               .filter((p) => p.projectId === project.id)
               .sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
-            const showDivider = projectPages.length > 0 || (canAddPage && editingProject !== project.id);
+            const showDivider = projectPages.length > 0 || canAddToProject(project);
 
             return (
               <div key={project.id} style={{ background: "var(--md-surface)", borderRadius: 12, border: "1px solid var(--md-outline-var)", overflow: "hidden" }}>
@@ -629,9 +572,8 @@ function ProjectsTab({ userEmail, isAdmin }: { userEmail: string; isAdmin: boole
                     <div key={page.name} style={{
                       display: "flex", alignItems: "center", gap: 10,
                       padding: "8px 14px 8px 22px",
-                      borderBottom: idx < projectPages.length - 1 || canAddPage ? "1px solid var(--md-outline-var)" : "none",
+                      borderBottom: idx < projectPages.length - 1 || canAddToProject(project) ? "1px solid var(--md-outline-var)" : "none",
                     }}>
-                      {/* Icon */}
                       <div style={{
                         width: 28, height: 28, borderRadius: 6,
                         background: page.iconColor || (isActive ? "var(--md-primary)" : "var(--md-surface-cont)"),
@@ -642,16 +584,12 @@ function ProjectsTab({ userEmail, isAdmin }: { userEmail: string; isAdmin: boole
                       }}>
                         {page.icon || page.name.charAt(0).toUpperCase()}
                       </div>
-
-                      {/* Name */}
                       <span style={{ flex: 1, fontSize: 12, fontWeight: 500, color: "var(--md-on-surface)", opacity: isActive ? 1 : 0.5 }}>
                         {page.name}
                         {page.hasBackend && <span style={{ marginLeft: 6, fontSize: 10, opacity: 0.4 }}>py</span>}
                       </span>
-
                       {canEdit && (
                         <div style={{ display: "flex", alignItems: "center", gap: 4, flexShrink: 0 }}>
-                          {/* Order arrows */}
                           <div style={{ display: "flex", flexDirection: "column" }}>
                             <button
                               onClick={() => handleMoveOrder(page.name, projectPages, -1)}
@@ -666,8 +604,6 @@ function ProjectsTab({ userEmail, isAdmin }: { userEmail: string; isAdmin: boole
                               style={{ background: "none", border: "none", cursor: idx === projectPages.length - 1 ? "default" : "pointer", opacity: idx === projectPages.length - 1 ? 0.12 : 0.45, fontSize: 9, padding: "1px 5px", color: "var(--md-on-surface)", lineHeight: 1 }}
                             >▼</button>
                           </div>
-
-                          {/* Active toggle */}
                           <label title={isActive ? "Visible — click to hide" : "Hidden — click to show"} style={{ cursor: "pointer", display: "flex", alignItems: "center" }}>
                             <input
                               type="checkbox"
@@ -676,11 +612,7 @@ function ProjectsTab({ userEmail, isAdmin }: { userEmail: string; isAdmin: boole
                               style={{ width: 13, height: 13, cursor: "pointer" }}
                             />
                           </label>
-
-                          {/* Edit */}
                           <button onClick={() => setEditModalPage(page)} style={{ ...testBtnStyle, padding: "3px 9px", fontSize: 11 }}>Edit</button>
-
-                          {/* Delete */}
                           {deletingPage === deleteKey ? (
                             <div style={{ display: "flex", alignItems: "center", gap: 3 }}>
                               <span style={{ fontSize: 11, color: "#ef5350" }}>Delete?</span>
@@ -696,21 +628,18 @@ function ProjectsTab({ userEmail, isAdmin }: { userEmail: string; isAdmin: boole
                   );
                 })}
 
-                {/* Add page to project */}
-                {canAddPage && editingProject !== project.id && (
+                {/* Add page */}
+                {canAddToProject(project) && editingProject !== project.id && (
                   <div style={{ padding: "6px 14px 8px 22px" }}>
-                    {uploadForSection === project.id ? (
+                    {uploadForProject === project.id ? (
                       <UploadForm
-                        defaultProjectId={project.id}
-                        projects={projects}
-                        userEmail={userEmail}
-                        isAdmin={isAdmin}
-                        onClose={() => setUploadForSection(null)}
+                        projectId={project.id}
+                        onClose={() => setUploadForProject(null)}
                         onUploaded={loadData}
                       />
                     ) : (
                       <button
-                        onClick={() => setUploadForSection(project.id)}
+                        onClick={() => setUploadForProject(project.id)}
                         style={{ background: "none", border: "1px dashed var(--md-outline)", borderRadius: 8, padding: "5px 12px", fontSize: 11, color: "var(--md-on-surface)", opacity: 0.4, cursor: "pointer", width: "100%", textAlign: "center" }}
                       >
                         + Add page
@@ -721,67 +650,6 @@ function ProjectsTab({ userEmail, isAdmin }: { userEmail: string; isAdmin: boole
               </div>
             );
           })}
-        </div>
-      )}
-
-      {/* Unassigned pages (admin only) */}
-      {(unassignedPages.length > 0 || isAdmin) && (
-        <div>
-          <h4 style={{ fontSize: 11, fontWeight: 600, color: "var(--md-on-surface)", opacity: 0.4, margin: "4px 0 8px", textTransform: "uppercase", letterSpacing: "0.06em" }}>
-            Unassigned
-          </h4>
-          {unassignedPages.length > 0 && (
-            <div style={{ background: "var(--md-surface)", borderRadius: 12, border: "1px solid var(--md-outline-var)", overflow: "hidden", marginBottom: 8 }}>
-              {unassignedPages.map((page, idx) => {
-                const canEdit = canManagePage(page);
-                const deleteKey = `__unassigned__:${page.name}`;
-                return (
-                  <div key={page.name} style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 14px", borderBottom: idx < unassignedPages.length - 1 ? "1px solid var(--md-outline-var)" : "none" }}>
-                    <div style={{ width: 28, height: 28, borderRadius: 6, background: page.iconColor || "var(--md-surface-cont)", display: "flex", alignItems: "center", justifyContent: "center", color: "var(--md-on-surface)", fontSize: 12, fontWeight: 600, flexShrink: 0, opacity: 0.5 }}>
-                      {page.icon || page.name.charAt(0).toUpperCase()}
-                    </div>
-                    <span style={{ flex: 1, fontSize: 12, fontWeight: 500, color: "var(--md-on-surface)", opacity: 0.6 }}>
-                      {page.name}
-                      {page.hasBackend && <span style={{ marginLeft: 6, fontSize: 10, opacity: 0.4 }}>py</span>}
-                    </span>
-                    {canEdit && (
-                      <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
-                        <button onClick={() => setEditModalPage(page)} style={{ ...testBtnStyle, padding: "3px 9px", fontSize: 11 }}>Edit</button>
-                        {deletingPage === deleteKey ? (
-                          <div style={{ display: "flex", alignItems: "center", gap: 3 }}>
-                            <span style={{ fontSize: 11, color: "#ef5350" }}>Delete?</span>
-                            <button onClick={() => handleDeletePage(page.name)} style={{ ...dangerBtnStyle, padding: "3px 6px", fontSize: 11 }}>Yes</button>
-                            <button onClick={() => setDeletingPage(null)} style={{ ...ghostBtnStyle, padding: "3px 6px", fontSize: 11 }}>No</button>
-                          </div>
-                        ) : (
-                          <button onClick={() => setDeletingPage(deleteKey)} style={{ ...dangerBtnStyle, padding: "3px 8px", fontSize: 11 }}>✕</button>
-                        )}
-                      </div>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
-          )}
-          {isAdmin && (
-            uploadForSection === "__unassigned__" ? (
-              <UploadForm
-                defaultProjectId={null}
-                projects={projects}
-                userEmail={userEmail}
-                isAdmin={isAdmin}
-                onClose={() => setUploadForSection(null)}
-                onUploaded={loadData}
-              />
-            ) : (
-              <button
-                onClick={() => setUploadForSection("__unassigned__")}
-                style={{ background: "none", border: "1px dashed var(--md-outline)", borderRadius: 8, padding: "7px 16px", fontSize: 11, color: "var(--md-on-surface)", opacity: 0.35, cursor: "pointer", width: "100%", textAlign: "center" }}
-              >
-                + Upload unassigned page
-              </button>
-            )
-          )}
         </div>
       )}
     </div>
@@ -820,7 +688,7 @@ export function AdminModal({ onClose, userEmail, isAdmin, selectedProjectId, onS
             <button onClick={onClose} style={{ marginLeft: "auto", background: "none", border: "none", cursor: "pointer", color: "var(--md-on-surface)", opacity: 0.5, fontSize: 20, lineHeight: 1, padding: "4px 8px", borderRadius: 8 }}>×</button>
           </div>
 
-          {/* Active project selector strip */}
+          {/* Active project selector */}
           {projects.length > 0 && (
             <div style={{ padding: "10px 24px", background: "var(--md-surface-cont)", display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", borderBottom: "1px solid var(--md-outline-var)" }}>
               <span style={{ fontSize: 11, fontWeight: 600, opacity: 0.4, color: "var(--md-on-surface)", textTransform: "uppercase", letterSpacing: "0.07em", flexShrink: 0 }}>Active project</span>

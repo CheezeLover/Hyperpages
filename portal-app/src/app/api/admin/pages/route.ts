@@ -4,10 +4,9 @@ import { getAllPageSettings, setPageSettings, deletePageSettings, getPageSetting
 import { getAllProjects } from "@/lib/project-settings";
 import fs from "fs";
 import path from "path";
+import { checkRateLimit } from "@/lib/utils";
 
 const PAGES_DIR = process.env.PAGES_DIR ?? path.join(process.cwd(), "pages");
-
-import { checkRateLimit } from "@/lib/utils";
 
 const _rateLimitMap = new Map<string, number[]>();
 const RATE_LIMIT = 20;
@@ -39,10 +38,7 @@ function scanPagesDir(): { name: string; hasBackend: boolean }[] {
         const indexPath = path.join(PAGES_DIR, entry.name, "index.html");
         const backendPath = path.join(PAGES_DIR, entry.name, "backend.py");
         if (fs.existsSync(indexPath)) {
-          pages.push({
-            name: entry.name,
-            hasBackend: fs.existsSync(backendPath),
-          });
+          pages.push({ name: entry.name, hasBackend: fs.existsSync(backendPath) });
         }
       }
     }
@@ -52,7 +48,7 @@ function scanPagesDir(): { name: string; hasBackend: boolean }[] {
   return pages.sort((a, b) => a.name.localeCompare(b.name));
 }
 
-/** GET /api/admin/pages — list all pages with their metadata (any authenticated user) */
+/** GET /api/admin/pages */
 export async function GET(request: NextRequest) {
   const denied = requireAuth(request);
   if (denied) return denied;
@@ -69,7 +65,6 @@ export async function GET(request: NextRequest) {
     name: p.name,
     hasBackend: p.hasBackend,
     active: settings[p.name]?.active ?? true,
-    allowedEmails: settings[p.name]?.allowedEmails ?? [],
     projectId: settings[p.name]?.projectId,
     order: settings[p.name]?.order ?? 0,
     icon: settings[p.name]?.icon,
@@ -80,7 +75,7 @@ export async function GET(request: NextRequest) {
   return NextResponse.json({ pages: pagesWithMeta });
 }
 
-/** POST /api/admin/pages — upload a new page */
+/** POST /api/admin/pages — upload a new page; projectId is required */
 export async function POST(request: NextRequest) {
   const denied = requireAuth(request);
   if (denied) return denied;
@@ -102,30 +97,20 @@ export async function POST(request: NextRequest) {
     const backendFile = formData.get("backend") as File | null;
     const icon = formData.get("icon")?.toString().trim() || undefined;
     const iconColor = formData.get("iconColor")?.toString().trim() || undefined;
-    const projectId = formData.get("projectId")?.toString().trim() || undefined;
+    const projectId = formData.get("projectId")?.toString().trim();
 
-    if (!name) {
-      return NextResponse.json({ error: "Page name is required" }, { status: 400 });
-    }
+    if (!name) return NextResponse.json({ error: "Page name is required" }, { status: 400 });
     if (!/^[a-zA-Z0-9_-]+$/.test(name)) {
       return NextResponse.json({ error: "Page name must contain only letters, numbers, underscores and hyphens" }, { status: 400 });
     }
-    if (!htmlFile) {
-      return NextResponse.json({ error: "HTML file is required" }, { status: 400 });
-    }
+    if (!htmlFile) return NextResponse.json({ error: "HTML file is required" }, { status: 400 });
+    if (!projectId) return NextResponse.json({ error: "A project is required" }, { status: 400 });
 
-    // Authorization: must be creator of the target project, or admin for unassigned
-    if (projectId) {
-      const allProjects = await getAllProjects();
-      const project = allProjects.find((p) => p.id === projectId);
-      if (!project) {
-        return NextResponse.json({ error: "Project not found" }, { status: 400 });
-      }
-      if (!user.isAdmin && project.createdBy !== user.email) {
-        return NextResponse.json({ error: "Forbidden: you can only add pages to your own projects" }, { status: 403 });
-      }
-    } else if (!user.isAdmin) {
-      return NextResponse.json({ error: "Forbidden: only admins can add unassigned pages" }, { status: 403 });
+    const allProjects = await getAllProjects();
+    const project = allProjects.find((p) => p.id === projectId);
+    if (!project) return NextResponse.json({ error: "Project not found" }, { status: 400 });
+    if (!user.isAdmin && project.createdBy !== user.email) {
+      return NextResponse.json({ error: "Forbidden: you can only add pages to your own projects" }, { status: 403 });
     }
 
     const pageDir = path.join(PAGES_DIR, name);
@@ -134,21 +119,17 @@ export async function POST(request: NextRequest) {
     }
 
     fs.mkdirSync(pageDir, { recursive: true });
-    const htmlBuffer = Buffer.from(await htmlFile.arrayBuffer());
-    fs.writeFileSync(path.join(pageDir, "index.html"), htmlBuffer);
-
+    fs.writeFileSync(path.join(pageDir, "index.html"), Buffer.from(await htmlFile.arrayBuffer()));
     if (backendFile && backendFile.size > 0) {
-      const backendBuffer = Buffer.from(await backendFile.arrayBuffer());
-      fs.writeFileSync(path.join(pageDir, "backend.py"), backendBuffer);
+      fs.writeFileSync(path.join(pageDir, "backend.py"), Buffer.from(await backendFile.arrayBuffer()));
     }
 
     const creatorEmail = user.email;
-    const pageAllowedEmails = creatorEmail ? [creatorEmail] : [];
-    await setPageSettings(name, { active: true, allowedEmails: pageAllowedEmails, projectId, order: 0, icon, iconColor, createdBy: creatorEmail });
+    await setPageSettings(name, { active: true, projectId, order: 0, icon, iconColor, createdBy: creatorEmail });
 
     return NextResponse.json({
       ok: true,
-      page: { name, hasBackend: !!backendFile && backendFile.size > 0, active: true, allowedEmails: pageAllowedEmails, projectId, order: 0, icon, iconColor, createdBy: creatorEmail }
+      page: { name, hasBackend: !!backendFile && backendFile.size > 0, active: true, projectId, order: 0, icon, iconColor, createdBy: creatorEmail }
     });
   } catch (e) {
     console.error("[admin/pages] Failed to upload page:", e);
@@ -156,7 +137,7 @@ export async function POST(request: NextRequest) {
   }
 }
 
-/** PUT /api/admin/pages — update page files */
+/** PUT /api/admin/pages — replace page files */
 export async function PUT(request: NextRequest) {
   const denied = requireAuth(request);
   if (denied) return denied;
@@ -216,11 +197,10 @@ export async function PATCH(request: NextRequest) {
 
   try {
     const body = await request.json();
-    const { name, active, allowedEmails, projectId, order, icon, iconColor } = body as {
+    const { name, active, projectId, order, icon, iconColor } = body as {
       name: string;
       active?: boolean;
-      allowedEmails?: string[];
-      projectId?: string | null;
+      projectId?: string;
       order?: number;
       icon?: string;
       iconColor?: string;
@@ -236,18 +216,10 @@ export async function PATCH(request: NextRequest) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
-    const current = (await getAllPageSettings())[name] ?? { active: true, allowedEmails: [], order: 0 };
-    const finalEmails = allowedEmails !== undefined ? [...allowedEmails] : [...(current.allowedEmails ?? [])];
-    // Protect creator: ensure their email is never removed
-    if (current.createdBy && !finalEmails.includes(current.createdBy)) {
-      finalEmails.push(current.createdBy);
-    }
-
+    const current = (await getAllPageSettings())[name] ?? { active: true, order: 0 };
     const updated: PageSettings = {
       active: active !== undefined ? active : (current.active ?? true),
-      allowedEmails: finalEmails,
-      // projectId: null means explicitly unassign; undefined means keep current
-      projectId: projectId !== undefined ? (projectId ?? undefined) : current.projectId,
+      projectId: projectId !== undefined ? projectId : current.projectId,
       order: order !== undefined ? order : (current.order ?? 0),
       icon: icon !== undefined ? icon : current.icon,
       iconColor: iconColor !== undefined ? iconColor : current.iconColor,
@@ -262,7 +234,7 @@ export async function PATCH(request: NextRequest) {
   }
 }
 
-/** DELETE /api/admin/pages — delete a page */
+/** DELETE /api/admin/pages */
 export async function DELETE(request: NextRequest) {
   const denied = requireAuth(request);
   if (denied) return denied;

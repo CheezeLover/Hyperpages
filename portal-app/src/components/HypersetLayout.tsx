@@ -13,7 +13,6 @@ interface Page {
 interface PageApiItem {
   name: string;
   active?: boolean;
-  allowedEmails: string[];
   projectId?: string;
   order?: number;
   icon?: string;
