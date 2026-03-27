@@ -14,6 +14,7 @@ interface ServiceColumnProps {
   selectedPage: Page | null;
   onSelectPage: (page: Page) => void;
   onExportPdf: () => void;
+  isExporting?: boolean;
   onOpenAdmin: () => void;
   onDisconnect?: () => void;
 }
@@ -73,7 +74,7 @@ function ServiceBtn({
   );
 }
 
-export function ServiceColumn({ isPortraitMode, pages, selectedPage, onSelectPage, onExportPdf, onOpenAdmin, onDisconnect }: ServiceColumnProps) {
+export function ServiceColumn({ isPortraitMode, pages, selectedPage, onSelectPage, onExportPdf, isExporting, onOpenAdmin, onDisconnect }: ServiceColumnProps) {
   return (
     <div
       style={{
@@ -108,12 +109,18 @@ export function ServiceColumn({ isPortraitMode, pages, selectedPage, onSelectPag
 
       {!isPortraitMode && <div style={{ flex: 1 }} />}
 
-      {/* Export to PDF */}
+      {/* Export */}
       {pages.length > 0 && (
-        <ServiceBtn active={false} tooltip="Export to PDF" onClick={onExportPdf} colorScheme="secondary" isPortrait={isPortraitMode}>
-          <svg viewBox="0 0 24 24" width={20} height={20} fill="currentColor">
-            <path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-7 14l-5-5h3V9h4v3h3l-5 5z"/>
-          </svg>
+        <ServiceBtn active={false} tooltip={isExporting ? "Exporting…" : "Export"} onClick={onExportPdf} colorScheme="secondary" isPortrait={isPortraitMode}>
+          {isExporting ? (
+            <svg viewBox="0 0 24 24" width={20} height={20} fill="currentColor" style={{ opacity: 0.5 }}>
+              <path d="M12 4V1L8 5l4 4V6c3.31 0 6 2.69 6 6s-2.69 6-6 6-6-2.69-6-6H4c0 4.42 3.58 8 8 8s8-3.58 8-8-3.58-8-8-8z"/>
+            </svg>
+          ) : (
+            <svg viewBox="0 0 24 24" width={20} height={20} fill="currentColor">
+              <path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-7 14l-5-5h3V9h4v3h3l-5 5z"/>
+            </svg>
+          )}
         </ServiceBtn>
       )}
 
