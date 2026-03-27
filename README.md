@@ -78,6 +78,24 @@ chmod +x setup_podman.sh
 - **Security:** Header-based authentication with zero trust for direct Superset access
 - **Two-file compose split:** `podman-compose.data.yml` holds all stateful services; `podman-compose.yml` holds all stateless services that can be freely restarted or scaled
 
+### Custom Pages & Projects
+
+The portal supports **custom pages** — self-contained HTML files (optionally with a Python backend) served under `pages.{HYPERSET_DOMAIN}` and displayed in the portal sidebar.
+
+Pages are organized into **projects**. Each project and page has its own access control list:
+
+| Level | Who can access |
+|-------|---------------|
+| Admin (`hyperset/admin` or `authp/admin` role) | Everything |
+| Project creator | Their own project and all its pages |
+| User in project's `allowedEmails` | That project and all its pages |
+| User in page's direct `allowedEmails` | That specific page only |
+| Page creator | Their own page (always, regardless of project membership) |
+
+**Creator protection:** The email of the user who created a project or page is permanently locked into its access list and cannot be removed, even by other managers.
+
+**Admin section:** All authenticated users can open the admin modal. Non-admin users only see projects they belong to and can only manage (edit/delete) projects and pages they created.
+
 ### Volume Layout
 
 | Volume | File | Purpose | Cloud equivalent |
@@ -388,6 +406,15 @@ podman logs hyperset-caddy -f
 | `PATCH` | `/api/admin` | Validate API credentials (admin only) |
 | `GET` | `/api/cleanup-config` | Get current cleanup delay in minutes (used by MCP server) |
 | `POST` | `/api/chart-promote` | Promote an AI chart from temporary to permanent |
+| `GET` | `/api/admin/projects` | List projects visible to the caller |
+| `POST` | `/api/admin/projects` | Create a new project (any authenticated user) |
+| `PATCH` | `/api/admin/projects` | Update a project (creator or admin) |
+| `DELETE` | `/api/admin/projects` | Delete a project (creator or admin) |
+| `GET` | `/api/admin/pages` | List all pages with metadata (any authenticated user) |
+| `POST` | `/api/admin/pages` | Upload a new page (project creator or admin) |
+| `PUT` | `/api/admin/pages` | Replace page files (project creator or admin) |
+| `PATCH` | `/api/admin/pages` | Update page settings (creator, project creator, or admin) |
+| `DELETE` | `/api/admin/pages` | Delete a page (creator, project creator, or admin) |
 
 ### Pages Service
 

@@ -53,20 +53,42 @@ All LLM settings can be overridden at runtime by admins via the gear icon in the
 
 ---
 
+## Database Tables
+
+The portal automatically creates these tables on first boot (idempotent migrations):
+
+| Table | Purpose |
+|-------|---------|
+| `hyperset_page_settings` | Per-page metadata stored as JSONB: active flag, allowed emails, project IDs, order, icon, creator |
+| `hyperset_projects` | Project records: name, icon, allowed emails, creator |
+
+The `hyperset_page_settings.settings` JSONB column absorbs all new fields without schema changes. Legacy `projectId` (single string) is automatically migrated to `projectIds` (array) on read.
+
+---
+
 ## API Routes
 
-| Method | Route | Description |
-|--------|-------|-------------|
-| `GET` | `/api/config` | Public config: Superset URL, Pages URL, current user info |
-| `GET` | `/api/chat` | Health check, MCP reachability probe |
-| `POST` | `/api/chat` | Streaming chat completion with MCP tool calls |
-| `GET` | `/api/admin` | Effective LLM settings (admin only) |
-| `POST` | `/api/admin` | Save runtime LLM settings (admin only) |
-| `DELETE` | `/api/admin` | Reset to env defaults (admin only) |
-| `PATCH` | `/api/admin` | Validate LLM API credentials (admin only) |
-| `GET` | `/api/cleanup-config` | Cleanup delay in minutes (consumed by MCP server) |
-| `POST` | `/api/chart-promote` | Promote an AI temporary chart to permanent |
-| `GET` | `/api/auth/logout` | Clear session and redirect to auth portal |
+| Method | Route | Auth required | Description |
+|--------|-------|--------------|-------------|
+| `GET` | `/api/config` | No | Public config: Superset URL, Pages URL, current user info |
+| `GET` | `/api/chat` | Yes | Health check, MCP reachability probe |
+| `POST` | `/api/chat` | Yes | Streaming chat completion with MCP tool calls |
+| `GET` | `/api/admin` | Admin | Effective LLM settings |
+| `POST` | `/api/admin` | Admin | Save runtime LLM settings |
+| `DELETE` | `/api/admin` | Admin | Reset to env defaults |
+| `PATCH` | `/api/admin` | Admin | Validate LLM API credentials |
+| `GET` | `/api/cleanup-config` | No | Cleanup delay in minutes (consumed by MCP server) |
+| `POST` | `/api/chart-promote` | Yes | Promote an AI temporary chart to permanent |
+| `GET` | `/api/auth/logout` | No | Clear session and redirect to auth portal |
+| `GET` | `/api/admin/projects` | Yes | List projects visible to the caller |
+| `POST` | `/api/admin/projects` | Yes | Create a project (any authenticated user) |
+| `PATCH` | `/api/admin/projects` | Yes | Update a project (creator or admin) |
+| `DELETE` | `/api/admin/projects` | Yes | Delete a project (creator or admin) |
+| `GET` | `/api/admin/pages` | Yes | List all pages with settings |
+| `POST` | `/api/admin/pages` | Yes | Upload a new page (multipart/form-data) |
+| `PUT` | `/api/admin/pages` | Yes | Replace page files (multipart/form-data) |
+| `PATCH` | `/api/admin/pages` | Yes | Update page settings (active, emails, projects, order, icon) |
+| `DELETE` | `/api/admin/pages` | Yes | Delete a page and its directory |
 
 ---
 
