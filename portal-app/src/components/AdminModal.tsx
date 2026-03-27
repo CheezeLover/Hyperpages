@@ -19,12 +19,11 @@ interface PageInfo {
   hasBackend: boolean;
   active?: boolean;
   allowedEmails: string[];
-  projectIds: string[];
+  projectId?: string;
   order?: number;
   icon?: string;
   iconColor?: string;
   createdBy?: string;
-  projectOverrides?: Record<string, { active: boolean; order: number }>;
 }
 
 interface ProjectInfo {
@@ -36,7 +35,7 @@ interface ProjectInfo {
   createdBy: string;
 }
 
-// ── Shared helpers ─────────────────────────────────────────────────────────────
+// ── Helpers ────────────────────────────────────────────────────────────────────
 function Spinner() {
   return (
     <div style={{ display: "flex", alignItems: "center", justifyContent: "center", padding: 40 }}>
@@ -70,7 +69,7 @@ function PageEditModal({
   const [editEmails, setEditEmails] = useState(
     page.allowedEmails.filter((e) => e !== page.createdBy).join(", ")
   );
-  const [editProjectIds, setEditProjectIds] = useState<string[]>([...page.projectIds]);
+  const [editProjectId, setEditProjectId] = useState<string>(page.projectId ?? "");
   const [editHtmlFile, setEditHtmlFile] = useState<File | null>(null);
   const [editBackendFile, setEditBackendFile] = useState<File | null>(null);
   const [removeBackend, setRemoveBackend] = useState(false);
@@ -99,7 +98,13 @@ function PageEditModal({
       const res = await fetch("/api/admin/pages", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name: page.name, icon, iconColor, allowedEmails: emails, projectIds: editProjectIds }),
+        body: JSON.stringify({
+          name: page.name,
+          icon,
+          iconColor,
+          allowedEmails: emails,
+          projectId: editProjectId || null,
+        }),
       });
       if (!res.ok) throw new Error(((await res.json()) as { error?: string }).error ?? "Update failed");
       onSaved();
@@ -122,6 +127,7 @@ function PageEditModal({
         </h3>
         {error && <div style={{ marginBottom: 12 }}><ErrorBanner msg={error} /></div>}
         <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+
           {/* Icon + color */}
           <div style={{ display: "flex", gap: 12 }}>
             <div style={{ flex: 1 }}>
@@ -132,6 +138,23 @@ function PageEditModal({
               <label style={labelStyle}>Icon Color</label>
               <input type="text" value={editIconColor} onChange={(e) => setEditIconColor(e.target.value)} placeholder="#1a73e8" style={{ ...inputStyle, padding: "8px 12px" }} />
             </div>
+          </div>
+
+          {/* Project */}
+          <div>
+            <label style={labelStyle}>Project</label>
+            <select
+              value={editProjectId}
+              onChange={(e) => setEditProjectId(e.target.value)}
+              style={{ ...inputStyle, padding: "8px 12px" }}
+            >
+              <option value="">— No project —</option>
+              {visibleProjects.map((p) => (
+                <option key={p.id} value={p.id}>
+                  {p.icon ? `${p.icon} ` : ""}{p.name}
+                </option>
+              ))}
+            </select>
           </div>
 
           {/* Direct email access */}
@@ -155,30 +178,6 @@ function PageEditModal({
               Comma-separated. Leave empty to rely on project access only.
             </p>
           </div>
-
-          {/* Projects */}
-          {visibleProjects.length > 0 && (
-            <div>
-              <label style={labelStyle}>Projects</label>
-              <div style={{ background: "var(--md-surface-cont)", border: "1px solid var(--md-outline)", borderRadius: 10, padding: "10px 14px", display: "flex", flexDirection: "column", gap: 6 }}>
-                {visibleProjects.map((p) => (
-                  <label key={p.id} style={{ display: "flex", alignItems: "center", gap: 8, cursor: "pointer", fontSize: 13, color: "var(--md-on-surface)" }}>
-                    <input
-                      type="checkbox"
-                      checked={editProjectIds.includes(p.id)}
-                      onChange={(e) => {
-                        if (e.target.checked) setEditProjectIds([...editProjectIds, p.id]);
-                        else setEditProjectIds(editProjectIds.filter((id) => id !== p.id));
-                      }}
-                      style={{ width: 14, height: 14, cursor: "pointer" }}
-                    />
-                    <span style={{ fontSize: 14 }}>{p.icon || p.name.charAt(0).toUpperCase()}</span>
-                    {p.name}
-                  </label>
-                ))}
-              </div>
-            </div>
-          )}
 
           {/* Files */}
           <div>
@@ -220,7 +219,7 @@ function UploadForm({
   const [name, setName] = useState("");
   const [icon, setIcon] = useState("");
   const [iconColor, setIconColor] = useState("");
-  const [selectedProjects, setSelectedProjects] = useState<string[]>(defaultProjectId ? [defaultProjectId] : []);
+  const [selectedProjectId, setSelectedProjectId] = useState<string>(defaultProjectId ?? "");
   const [htmlFile, setHtmlFile] = useState<File | null>(null);
   const [backendFile, setBackendFile] = useState<File | null>(null);
   const [uploading, setUploading] = useState(false);
@@ -236,7 +235,7 @@ function UploadForm({
       formData.append("name", name.trim());
       formData.append("html", htmlFile);
       if (backendFile) formData.append("backend", backendFile);
-      formData.append("projectIds", JSON.stringify(selectedProjects));
+      if (selectedProjectId) formData.append("projectId", selectedProjectId);
       if (icon.trim()) formData.append("icon", icon.trim());
       if (iconColor.trim()) formData.append("iconColor", iconColor.trim());
       const res = await fetch("/api/admin/pages", { method: "POST", body: formData });
@@ -271,24 +270,19 @@ function UploadForm({
         </div>
         {visibleProjects.length > 0 && (
           <div>
-            <label style={labelStyle}>Projects</label>
-            <div style={{ background: "var(--md-surface-cont)", border: "1px solid var(--md-outline)", borderRadius: 10, padding: "8px 12px", display: "flex", flexDirection: "column", gap: 4 }}>
+            <label style={labelStyle}>Project</label>
+            <select
+              value={selectedProjectId}
+              onChange={(e) => setSelectedProjectId(e.target.value)}
+              style={{ ...inputStyle, padding: "8px 12px" }}
+            >
+              {isAdmin && <option value="">— No project —</option>}
               {visibleProjects.map((p) => (
-                <label key={p.id} style={{ display: "flex", alignItems: "center", gap: 8, cursor: "pointer", fontSize: 12, color: "var(--md-on-surface)" }}>
-                  <input
-                    type="checkbox"
-                    checked={selectedProjects.includes(p.id)}
-                    onChange={(e) => {
-                      if (e.target.checked) setSelectedProjects([...selectedProjects, p.id]);
-                      else setSelectedProjects(selectedProjects.filter((id) => id !== p.id));
-                    }}
-                    style={{ width: 13, height: 13, cursor: "pointer" }}
-                  />
-                  <span>{p.icon || p.name.charAt(0).toUpperCase()}</span>
-                  {p.name}
-                </label>
+                <option key={p.id} value={p.id}>
+                  {p.icon ? `${p.icon} ` : ""}{p.name}
+                </option>
               ))}
-            </div>
+            </select>
           </div>
         )}
         <div>
@@ -331,7 +325,7 @@ function ProjectsTab({ userEmail, isAdmin }: { userEmail: string; isAdmin: boole
 
   // Page state
   const [editModalPage, setEditModalPage] = useState<PageInfo | null>(null);
-  const [uploadForSection, setUploadForSection] = useState<string | null>(null); // projectId or "__unassigned__"
+  const [uploadForSection, setUploadForSection] = useState<string | null>(null);
   const [deletingPage, setDeletingPage] = useState<string | null>(null);
   const [showTemplates, setShowTemplates] = useState(false);
 
@@ -357,7 +351,10 @@ function ProjectsTab({ userEmail, isAdmin }: { userEmail: string; isAdmin: boole
   const canManagePage = (page: PageInfo): boolean => {
     if (isAdmin) return true;
     if (page.createdBy === userEmail) return true;
-    return page.projectIds.some((pid) => projects.find((p) => p.id === pid)?.createdBy === userEmail);
+    if (page.projectId) {
+      return projects.find((p) => p.id === page.projectId)?.createdBy === userEmail;
+    }
+    return false;
   };
 
   // ── Project handlers ─────────────────────────────────────────────────────────
@@ -419,32 +416,27 @@ function ProjectsTab({ userEmail, isAdmin }: { userEmail: string; isAdmin: boole
   };
 
   // ── Page handlers ────────────────────────────────────────────────────────────
-  const handleToggleActive = async (pageName: string, projectId: string, active: boolean) => {
+  const handleToggleActive = async (pageName: string, active: boolean) => {
     try {
       await fetch("/api/admin/pages", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name: pageName, projectId, active }),
+        body: JSON.stringify({ name: pageName, active }),
       });
-      setPages((prev) => prev.map((p) => {
-        if (p.name !== pageName) return p;
-        const cur = p.projectOverrides?.[projectId] ?? { active: true, order: 0 };
-        return { ...p, projectOverrides: { ...(p.projectOverrides ?? {}), [projectId]: { ...cur, active } } };
-      }));
+      setPages((prev) => prev.map((p) => p.name === pageName ? { ...p, active } : p));
     } catch { setError("Failed to update page"); }
   };
 
   /**
-   * Move a page up or down within a project. Normalises all orders so they are
-   * sequential integers starting at 0, then applies the swap.
+   * Reorder a page within a project by swapping with the adjacent page.
+   * Normalises all orders to sequential integers before saving.
    */
-  const handleMoveOrder = async (pageName: string, projectId: string, projectPages: PageInfo[], delta: number) => {
+  const handleMoveOrder = async (pageName: string, projectPages: PageInfo[], delta: number) => {
     const idx = projectPages.findIndex((p) => p.name === pageName);
     if (idx < 0) return;
     const newIdx = idx + delta;
     if (newIdx < 0 || newIdx >= projectPages.length) return;
 
-    // Build new ordered name list after the swap
     const names = projectPages.map((p) => p.name);
     names.splice(idx, 1);
     names.splice(newIdx, 0, pageName);
@@ -455,15 +447,13 @@ function ProjectsTab({ userEmail, isAdmin }: { userEmail: string; isAdmin: boole
           fetch("/api/admin/pages", {
             method: "PATCH",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ name, projectId, order: i }),
+            body: JSON.stringify({ name, order: i }),
           })
         )
       );
       setPages((prev) => prev.map((p) => {
         const order = names.indexOf(p.name);
-        if (order < 0) return p;
-        const cur = p.projectOverrides?.[projectId] ?? { active: true, order: 0 };
-        return { ...p, projectOverrides: { ...(p.projectOverrides ?? {}), [projectId]: { ...cur, order } } };
+        return order >= 0 ? { ...p, order } : p;
       }));
     } catch { setError("Failed to update order"); }
   };
@@ -479,13 +469,13 @@ function ProjectsTab({ userEmail, isAdmin }: { userEmail: string; isAdmin: boole
   if (loading) return <Spinner />;
 
   const canAddPage = isAdmin || projects.some((p) => p.createdBy === userEmail);
-  const unassignedPages = pages.filter((p) => p.projectIds.length === 0);
+  const unassignedPages = pages.filter((p) => !p.projectId);
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
       {error && <ErrorBanner msg={error} />}
 
-      {/* Page edit modal (rendered outside the list so it overlays everything) */}
+      {/* Page edit modal */}
       {editModalPage && (
         <PageEditModal
           page={editModalPage}
@@ -505,8 +495,10 @@ function ProjectsTab({ userEmail, isAdmin }: { userEmail: string; isAdmin: boole
         <div style={{ display: "flex", gap: 8 }}>
           {/* Templates dropdown */}
           <div style={{ position: "relative" }}>
-            <button onClick={() => setShowTemplates(!showTemplates)}
-              style={{ background: "var(--md-surface-cont)", color: "var(--md-on-surface)", border: "1px solid var(--md-outline)", borderRadius: 8, padding: "6px 12px", fontSize: 12, fontWeight: 500, cursor: "pointer" }}>
+            <button
+              onClick={() => setShowTemplates(!showTemplates)}
+              style={{ background: "var(--md-surface-cont)", color: "var(--md-on-surface)", border: "1px solid var(--md-outline)", borderRadius: 8, padding: "6px 12px", fontSize: 12, fontWeight: 500, cursor: "pointer" }}
+            >
               Templates ▾
             </button>
             {showTemplates && (
@@ -522,7 +514,9 @@ function ProjectsTab({ userEmail, isAdmin }: { userEmail: string; isAdmin: boole
               </div>
             )}
           </div>
-          <button onClick={() => setShowCreate(!showCreate)} style={{ ...primaryBtnStyle, padding: "8px 16px", fontSize: 12 }}>+ New Project</button>
+          <button onClick={() => setShowCreate(!showCreate)} style={{ ...primaryBtnStyle, padding: "8px 16px", fontSize: 12 }}>
+            + New Project
+          </button>
         </div>
       </div>
 
@@ -557,7 +551,7 @@ function ProjectsTab({ userEmail, isAdmin }: { userEmail: string; isAdmin: boole
         </div>
       )}
 
-      {/* Projects list */}
+      {/* Projects list with nested pages */}
       {projects.length === 0 ? (
         <div style={{ textAlign: "center", padding: 40, color: "var(--md-on-surface)", opacity: 0.5 }}>
           No projects yet. Create one to get started.
@@ -566,15 +560,9 @@ function ProjectsTab({ userEmail, isAdmin }: { userEmail: string; isAdmin: boole
         <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
           {projects.map((project) => {
             const canManageProject = isAdmin || project.createdBy === userEmail;
-
             const projectPages = pages
-              .filter((p) => p.projectIds.includes(project.id))
-              .sort((a, b) => {
-                const oa = a.projectOverrides?.[project.id]?.order ?? 0;
-                const ob = b.projectOverrides?.[project.id]?.order ?? 0;
-                return oa - ob;
-              });
-
+              .filter((p) => p.projectId === project.id)
+              .sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
             const showDivider = projectPages.length > 0 || (canAddPage && editingProject !== project.id);
 
             return (
@@ -632,19 +620,18 @@ function ProjectsTab({ userEmail, isAdmin }: { userEmail: string; isAdmin: boole
                   </div>
                 )}
 
-                {/* Pages nested under the project */}
+                {/* Pages nested under project */}
                 {projectPages.map((page, idx) => {
                   const canEdit = canManagePage(page);
-                  const isActive = page.projectOverrides?.[project.id]?.active ?? true;
+                  const isActive = page.active !== false;
                   const deleteKey = `${project.id}:${page.name}`;
                   return (
                     <div key={page.name} style={{
                       display: "flex", alignItems: "center", gap: 10,
                       padding: "8px 14px 8px 22px",
                       borderBottom: idx < projectPages.length - 1 || canAddPage ? "1px solid var(--md-outline-var)" : "none",
-                      background: isActive ? "transparent" : "rgba(0,0,0,0.02)",
                     }}>
-                      {/* Page icon */}
+                      {/* Icon */}
                       <div style={{
                         width: 28, height: 28, borderRadius: 6,
                         background: page.iconColor || (isActive ? "var(--md-primary)" : "var(--md-surface-cont)"),
@@ -656,10 +643,10 @@ function ProjectsTab({ userEmail, isAdmin }: { userEmail: string; isAdmin: boole
                         {page.icon || page.name.charAt(0).toUpperCase()}
                       </div>
 
-                      {/* Page name */}
+                      {/* Name */}
                       <span style={{ flex: 1, fontSize: 12, fontWeight: 500, color: "var(--md-on-surface)", opacity: isActive ? 1 : 0.5 }}>
                         {page.name}
-                        {page.hasBackend && <span style={{ marginLeft: 6, fontSize: 10, opacity: 0.45 }}>py</span>}
+                        {page.hasBackend && <span style={{ marginLeft: 6, fontSize: 10, opacity: 0.4 }}>py</span>}
                       </span>
 
                       {canEdit && (
@@ -667,13 +654,13 @@ function ProjectsTab({ userEmail, isAdmin }: { userEmail: string; isAdmin: boole
                           {/* Order arrows */}
                           <div style={{ display: "flex", flexDirection: "column" }}>
                             <button
-                              onClick={() => handleMoveOrder(page.name, project.id, projectPages, -1)}
+                              onClick={() => handleMoveOrder(page.name, projectPages, -1)}
                               disabled={idx === 0}
                               title="Move up"
                               style={{ background: "none", border: "none", cursor: idx === 0 ? "default" : "pointer", opacity: idx === 0 ? 0.12 : 0.45, fontSize: 9, padding: "1px 5px", color: "var(--md-on-surface)", lineHeight: 1 }}
                             >▲</button>
                             <button
-                              onClick={() => handleMoveOrder(page.name, project.id, projectPages, 1)}
+                              onClick={() => handleMoveOrder(page.name, projectPages, 1)}
                               disabled={idx === projectPages.length - 1}
                               title="Move down"
                               style={{ background: "none", border: "none", cursor: idx === projectPages.length - 1 ? "default" : "pointer", opacity: idx === projectPages.length - 1 ? 0.12 : 0.45, fontSize: 9, padding: "1px 5px", color: "var(--md-on-surface)", lineHeight: 1 }}
@@ -685,7 +672,7 @@ function ProjectsTab({ userEmail, isAdmin }: { userEmail: string; isAdmin: boole
                             <input
                               type="checkbox"
                               checked={isActive}
-                              onChange={(e) => handleToggleActive(page.name, project.id, e.target.checked)}
+                              onChange={(e) => handleToggleActive(page.name, e.target.checked)}
                               style={{ width: 13, height: 13, cursor: "pointer" }}
                             />
                           </label>
@@ -709,7 +696,7 @@ function ProjectsTab({ userEmail, isAdmin }: { userEmail: string; isAdmin: boole
                   );
                 })}
 
-                {/* Add page button */}
+                {/* Add page to project */}
                 {canAddPage && editingProject !== project.id && (
                   <div style={{ padding: "6px 14px 8px 22px" }}>
                     {uploadForSection === project.id ? (
@@ -724,7 +711,7 @@ function ProjectsTab({ userEmail, isAdmin }: { userEmail: string; isAdmin: boole
                     ) : (
                       <button
                         onClick={() => setUploadForSection(project.id)}
-                        style={{ background: "none", border: "1px dashed var(--md-outline)", borderRadius: 8, padding: "5px 12px", fontSize: 11, color: "var(--md-on-surface)", opacity: 0.45, cursor: "pointer", width: "100%", textAlign: "center" }}
+                        style={{ background: "none", border: "1px dashed var(--md-outline)", borderRadius: 8, padding: "5px 12px", fontSize: 11, color: "var(--md-on-surface)", opacity: 0.4, cursor: "pointer", width: "100%", textAlign: "center" }}
                       >
                         + Add page
                       </button>
@@ -737,11 +724,11 @@ function ProjectsTab({ userEmail, isAdmin }: { userEmail: string; isAdmin: boole
         </div>
       )}
 
-      {/* Unassigned pages (admin only — non-admins can't create them) */}
+      {/* Unassigned pages (admin only) */}
       {(unassignedPages.length > 0 || isAdmin) && (
         <div>
           <h4 style={{ fontSize: 11, fontWeight: 600, color: "var(--md-on-surface)", opacity: 0.4, margin: "4px 0 8px", textTransform: "uppercase", letterSpacing: "0.06em" }}>
-            Unassigned Pages
+            Unassigned
           </h4>
           {unassignedPages.length > 0 && (
             <div style={{ background: "var(--md-surface)", borderRadius: 12, border: "1px solid var(--md-outline-var)", overflow: "hidden", marginBottom: 8 }}>
@@ -755,7 +742,7 @@ function ProjectsTab({ userEmail, isAdmin }: { userEmail: string; isAdmin: boole
                     </div>
                     <span style={{ flex: 1, fontSize: 12, fontWeight: 500, color: "var(--md-on-surface)", opacity: 0.6 }}>
                       {page.name}
-                      {page.hasBackend && <span style={{ marginLeft: 6, fontSize: 10, opacity: 0.45 }}>py</span>}
+                      {page.hasBackend && <span style={{ marginLeft: 6, fontSize: 10, opacity: 0.4 }}>py</span>}
                     </span>
                     {canEdit && (
                       <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
@@ -855,7 +842,6 @@ export function AdminModal({ onClose, userEmail, isAdmin, selectedProjectId, onS
                   >
                     <span style={{ fontSize: 13 }}>{p.icon || p.name.charAt(0).toUpperCase()}</span>
                     {p.name}
-                    {isActive && <span style={{ fontSize: 10, opacity: 0.7 }}>✓</span>}
                   </button>
                 );
               })}

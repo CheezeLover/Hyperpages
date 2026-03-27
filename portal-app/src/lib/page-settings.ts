@@ -1,7 +1,7 @@
 /**
  * Page settings store — PostgreSQL backed.
  *
- * Each page (active flag, allowed emails, icon, projects, order, creator) is stored as a JSONB row.
+ * Each page (active flag, allowed emails, icon, project, order, creator) is stored as a JSONB row.
  * An in-memory cache per instance avoids redundant DB round-trips on reads.
  */
 
@@ -9,17 +9,13 @@ import { sql, ensureSchema } from "./db";
 import { canUserViewProject, type Project } from "./project-settings";
 
 export interface PageSettings {
-  /** Global kill-switch (defaults true). Per-project visibility is in projectOverrides. */
   active?: boolean;
   allowedEmails: string[];
-  projectIds?: string[];
-  /** Legacy global order — superseded by projectOverrides per-project order. */
+  projectId?: string;
   order?: number;
   icon?: string;
   iconColor?: string;
   createdBy?: string;
-  /** Per-project active flag and display order. */
-  projectOverrides?: Record<string, { active: boolean; order: number }>;
 }
 
 export interface PageMetadata extends PageSettings {
@@ -42,9 +38,9 @@ export async function getAllPageSettings(): Promise<Record<string, PageSettings>
         ? (JSON.parse(row.settings) as Record<string, unknown>)
         : (row.settings as Record<string, unknown>);
 
-    // Migrate legacy single projectId → projectIds array
-    if (!raw.projectIds && raw.projectId) {
-      raw.projectIds = [raw.projectId as string];
+    // Migrate legacy projectIds array → single projectId (take first entry)
+    if (!raw.projectId && Array.isArray(raw.projectIds) && (raw.projectIds as string[]).length > 0) {
+      raw.projectId = (raw.projectIds as string[])[0];
     }
 
     result[row.name] = raw as unknown as PageSettings;
@@ -55,7 +51,7 @@ export async function getAllPageSettings(): Promise<Record<string, PageSettings>
 
 export async function getPageSettings(name: string): Promise<PageSettings> {
   const all = await getAllPageSettings();
-  return all[name] ?? { active: true, allowedEmails: [], projectIds: [], projectOverrides: {} };
+  return all[name] ?? { active: true, allowedEmails: [], order: 0 };
 }
 
 export async function setPageSettings(name: string, settings: PageSettings): Promise<void> {
@@ -81,7 +77,7 @@ export async function canUserViewPage(
   projects: Project[],
 ): Promise<boolean> {
   const settings = await getPageSettings(name);
-  // Explicit global disable (active===false) blocks the page entirely
+  // Explicit disable blocks the page entirely
   if (settings.active === false) return false;
   if (isAdmin) return true;
 
@@ -91,17 +87,13 @@ export async function canUserViewPage(
   // Direct per-page email access
   if (settings.allowedEmails.length > 0 && settings.allowedEmails.includes(email)) return true;
 
-  // Project-level access (any project the page belongs to)
-  const projectIds = settings.projectIds ?? [];
-  if (projectIds.length > 0) {
-    return projectIds.some((pid) => {
-      const project = projects.find((p) => p.id === pid);
-      if (!project) return false;
-      return canUserViewProject(project, email, isAdmin);
-    });
+  // Project-level access
+  if (settings.projectId) {
+    const project = projects.find((p) => p.id === settings.projectId);
+    if (project) return canUserViewProject(project, email, isAdmin);
   }
 
-  // Standalone page with no emails and no projects = visible to all authenticated
+  // Page with no emails and no project = visible to all authenticated users
   if (settings.allowedEmails.length === 0) return true;
 
   return false;

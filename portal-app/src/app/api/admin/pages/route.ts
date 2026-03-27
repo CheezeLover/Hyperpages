@@ -23,13 +23,10 @@ async function canManagePage(pageName: string, user: HypersetUser): Promise<bool
   if (user.isAdmin) return true;
   const settings = await getPageSettings(pageName);
   if (settings.createdBy === user.email) return true;
-  const projectIds = settings.projectIds ?? [];
-  if (projectIds.length === 0) return false;
+  if (!settings.projectId) return false;
   const allProjects = await getAllProjects();
-  return projectIds.some((pid) => {
-    const project = allProjects.find((p) => p.id === pid);
-    return project?.createdBy === user.email;
-  });
+  const project = allProjects.find((p) => p.id === settings.projectId);
+  return project?.createdBy === user.email;
 }
 
 function scanPagesDir(): { name: string; hasBackend: boolean }[] {
@@ -73,12 +70,11 @@ export async function GET(request: NextRequest) {
     hasBackend: p.hasBackend,
     active: settings[p.name]?.active ?? true,
     allowedEmails: settings[p.name]?.allowedEmails ?? [],
-    projectIds: settings[p.name]?.projectIds ?? [],
+    projectId: settings[p.name]?.projectId,
     order: settings[p.name]?.order ?? 0,
     icon: settings[p.name]?.icon,
     iconColor: settings[p.name]?.iconColor,
     createdBy: settings[p.name]?.createdBy,
-    projectOverrides: settings[p.name]?.projectOverrides ?? {},
   }));
 
   return NextResponse.json({ pages: pagesWithMeta });
@@ -106,13 +102,7 @@ export async function POST(request: NextRequest) {
     const backendFile = formData.get("backend") as File | null;
     const icon = formData.get("icon")?.toString().trim() || undefined;
     const iconColor = formData.get("iconColor")?.toString().trim() || undefined;
-
-    // projectIds sent as JSON array string
-    let projectIds: string[] = [];
-    const projectIdsRaw = formData.get("projectIds")?.toString();
-    if (projectIdsRaw) {
-      try { projectIds = JSON.parse(projectIdsRaw) as string[]; } catch { /* ignore */ }
-    }
+    const projectId = formData.get("projectId")?.toString().trim() || undefined;
 
     if (!name) {
       return NextResponse.json({ error: "Page name is required" }, { status: 400 });
@@ -124,15 +114,14 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "HTML file is required" }, { status: 400 });
     }
 
-    // Authorization: must be creator of at least one target project, or isAdmin for unassigned
-    if (projectIds.length > 0) {
+    // Authorization: must be creator of the target project, or admin for unassigned
+    if (projectId) {
       const allProjects = await getAllProjects();
-      const canUpload = projectIds.every((pid) => {
-        const project = allProjects.find((p) => p.id === pid);
-        if (!project) return false;
-        return user.isAdmin || project.createdBy === user.email;
-      });
-      if (!canUpload) {
+      const project = allProjects.find((p) => p.id === projectId);
+      if (!project) {
+        return NextResponse.json({ error: "Project not found" }, { status: 400 });
+      }
+      if (!user.isAdmin && project.createdBy !== user.email) {
         return NextResponse.json({ error: "Forbidden: you can only add pages to your own projects" }, { status: 403 });
       }
     } else if (!user.isAdmin) {
@@ -153,14 +142,13 @@ export async function POST(request: NextRequest) {
       fs.writeFileSync(path.join(pageDir, "backend.py"), backendBuffer);
     }
 
-    // Creator is always added to allowedEmails
     const creatorEmail = user.email;
     const pageAllowedEmails = creatorEmail ? [creatorEmail] : [];
-    await setPageSettings(name, { active: true, allowedEmails: pageAllowedEmails, projectIds, order: 0, icon, iconColor, createdBy: creatorEmail, projectOverrides: {} });
+    await setPageSettings(name, { active: true, allowedEmails: pageAllowedEmails, projectId, order: 0, icon, iconColor, createdBy: creatorEmail });
 
     return NextResponse.json({
       ok: true,
-      page: { name, hasBackend: !!backendFile && backendFile.size > 0, active: true, allowedEmails: pageAllowedEmails, projectIds, order: 0, icon, iconColor, createdBy: creatorEmail, projectOverrides: {} }
+      page: { name, hasBackend: !!backendFile && backendFile.size > 0, active: true, allowedEmails: pageAllowedEmails, projectId, order: 0, icon, iconColor, createdBy: creatorEmail }
     });
   } catch (e) {
     console.error("[admin/pages] Failed to upload page:", e);
@@ -228,16 +216,14 @@ export async function PATCH(request: NextRequest) {
 
   try {
     const body = await request.json();
-    const { name, active, allowedEmails, projectIds, order, icon, iconColor, projectId } = body as {
+    const { name, active, allowedEmails, projectId, order, icon, iconColor } = body as {
       name: string;
       active?: boolean;
       allowedEmails?: string[];
-      projectIds?: string[];
+      projectId?: string | null;
       order?: number;
       icon?: string;
       iconColor?: string;
-      /** When set, active/order are written as per-project overrides instead of global fields. */
-      projectId?: string;
     };
 
     if (!name) return NextResponse.json({ error: "Page name is required" }, { status: 400 });
@@ -250,36 +236,22 @@ export async function PATCH(request: NextRequest) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
-    const current = (await getAllPageSettings())[name] ?? { active: true, allowedEmails: [], projectIds: [], projectOverrides: {} };
+    const current = (await getAllPageSettings())[name] ?? { active: true, allowedEmails: [], order: 0 };
     const finalEmails = allowedEmails !== undefined ? [...allowedEmails] : [...(current.allowedEmails ?? [])];
-    // Protect creator: ensure their email is never removed from the list
+    // Protect creator: ensure their email is never removed
     if (current.createdBy && !finalEmails.includes(current.createdBy)) {
       finalEmails.push(current.createdBy);
     }
 
-    const currentOverrides = current.projectOverrides ?? {};
-    let nextOverrides = currentOverrides;
-    if (projectId !== undefined && (active !== undefined || order !== undefined)) {
-      // Per-project active/order override
-      const cur = currentOverrides[projectId] ?? { active: true, order: 0 };
-      nextOverrides = {
-        ...currentOverrides,
-        [projectId]: {
-          active: active !== undefined ? active : cur.active,
-          order: order !== undefined ? order : cur.order,
-        },
-      };
-    }
-
     const updated: PageSettings = {
-      active: projectId !== undefined ? (current.active ?? true) : (active !== undefined ? active : (current.active ?? true)),
+      active: active !== undefined ? active : (current.active ?? true),
       allowedEmails: finalEmails,
-      projectIds: projectIds !== undefined ? projectIds : (current.projectIds ?? []),
-      order: projectId !== undefined ? (current.order ?? 0) : (order !== undefined ? order : (current.order ?? 0)),
+      // projectId: null means explicitly unassign; undefined means keep current
+      projectId: projectId !== undefined ? (projectId ?? undefined) : current.projectId,
+      order: order !== undefined ? order : (current.order ?? 0),
       icon: icon !== undefined ? icon : current.icon,
       iconColor: iconColor !== undefined ? iconColor : current.iconColor,
       createdBy: current.createdBy,
-      projectOverrides: nextOverrides,
     };
 
     await setPageSettings(name, updated);
