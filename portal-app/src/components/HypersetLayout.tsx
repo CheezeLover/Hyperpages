@@ -106,6 +106,37 @@ export function HypersetLayout({ pagesUrl, isAdmin, userEmail }: HypersetLayoutP
     return () => window.removeEventListener("resize", update);
   }, []);
 
+  // ── Keyboard navigation between pages ────────────────────────────────────────
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Never intercept while the admin modal is open or while typing
+      if (adminOpen) return;
+      const tag = (e.target as HTMLElement).tagName;
+      if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return;
+      if ((e.target as HTMLElement).isContentEditable) return;
+
+      if (e.key === "ArrowRight" || e.key === "ArrowDown") {
+        e.preventDefault();
+        setSelectedPage((current) => {
+          if (pages.length === 0) return null;
+          if (!current) return pages[0];
+          const idx = pages.findIndex((p) => p.name === current.name);
+          return idx < pages.length - 1 ? pages[idx + 1] : current;
+        });
+      } else if (e.key === "ArrowLeft" || e.key === "ArrowUp") {
+        e.preventDefault();
+        setSelectedPage((current) => {
+          if (pages.length === 0) return null;
+          if (!current) return pages[0];
+          const idx = pages.findIndex((p) => p.name === current.name);
+          return idx > 0 ? pages[idx - 1] : current;
+        });
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [pages, adminOpen]);
+
   const handleSelectProject = (id: string) => {
     setSelectedProjectId(id);
     setSelectedPage(null);
