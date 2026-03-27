@@ -23,6 +23,7 @@ interface PageInfo {
   order?: number;
   icon?: string;
   iconColor?: string;
+  createdBy?: string;
 }
 
 interface ProjectInfo {
@@ -131,7 +132,8 @@ function ProjectsTab({ userEmail, isAdmin }: { userEmail: string; isAdmin: boole
   const openEdit = (p: ProjectInfo) => {
     setEditingProject(p.id);
     setEditName(p.name); setEditIcon(p.icon || ""); setEditIconColor(p.iconColor || "");
-    setEditEmails(p.allowedEmails.join(", "));
+    // Exclude the creator from the editable textarea (server will re-add them)
+    setEditEmails(p.allowedEmails.filter((e) => e !== p.createdBy).join(", "));
   };
 
   const handleSaveEdit = async (id: string) => {
@@ -222,6 +224,13 @@ function ProjectsTab({ userEmail, isAdmin }: { userEmail: string; isAdmin: boole
                       <input type="text" value={editIcon} onChange={(e) => setEditIcon(e.target.value.slice(0, 2))} placeholder="Icon" style={{ ...inputStyle, width: 60 }} />
                       <input type="text" value={editIconColor} onChange={(e) => setEditIconColor(e.target.value)} placeholder="Color" style={{ ...inputStyle, width: 100 }} />
                     </div>
+                    {project.createdBy && (
+                      <div style={{ display: "flex", alignItems: "center", gap: 6, padding: "4px 8px", borderRadius: 6, background: "rgba(var(--md-primary-rgb, 103,80,164),0.08)", border: "1px solid var(--md-outline-var)" }}>
+                        <span style={{ fontSize: 11, color: "var(--md-primary)", fontWeight: 600 }}>🔒</span>
+                        <span style={{ fontSize: 12, color: "var(--md-on-surface)", opacity: 0.8 }}>{project.createdBy}</span>
+                        <span style={{ fontSize: 10, opacity: 0.5, color: "var(--md-on-surface)", marginLeft: 2 }}>(creator — protected)</span>
+                      </div>
+                    )}
                     <textarea value={editEmails} onChange={(e) => setEditEmails(e.target.value)} placeholder="email1@ex.com, email2@ex.com" rows={2} style={{ ...inputStyle, resize: "vertical" }} />
                     <div style={{ display: "flex", gap: 8 }}>
                       <button onClick={() => handleSaveEdit(project.id)} style={{ ...primaryBtnStyle, padding: "6px 16px", fontSize: 12 }}>Save</button>
@@ -287,6 +296,8 @@ function PagesTab({ userEmail, isAdmin }: { userEmail: string; isAdmin: boolean 
   // Per-row inline state
   const [editingProjectsFor, setEditingProjectsFor] = useState<string | null>(null);
   const [editPageProjects, setEditPageProjects] = useState<string[]>([]);
+  const [editingEmailsFor, setEditingEmailsFor] = useState<string | null>(null);
+  const [editPageEmails, setEditPageEmails] = useState("");
   const [deletingPage, setDeletingPage] = useState<string | null>(null);
 
   // File edit modal state
@@ -316,6 +327,7 @@ function PagesTab({ userEmail, isAdmin }: { userEmail: string; isAdmin: boolean 
 
   const canManagePage = (page: PageInfo): boolean => {
     if (isAdmin) return true;
+    if (page.createdBy === userEmail) return true;
     return page.projectIds.some((pid) => projects.find((p) => p.id === pid)?.createdBy === userEmail);
   };
 
@@ -363,6 +375,19 @@ function PagesTab({ userEmail, isAdmin }: { userEmail: string; isAdmin: boolean 
       setPages((prev) => prev.map((p) => p.name === name ? { ...p, projectIds: editPageProjects } : p));
       setEditingProjectsFor(null);
     } catch { setError("Failed to update projects"); }
+  };
+
+  const handleSaveEmails = async (page: PageInfo) => {
+    const page_ = pages.find((p) => p.name === page.name);
+    if (!page_) return;
+    // Parse textarea, then ensure creator is always included
+    const typed = editPageEmails.split(",").map((e) => e.trim()).filter(Boolean);
+    if (page_.createdBy && !typed.includes(page_.createdBy)) typed.push(page_.createdBy);
+    try {
+      await fetch("/api/admin/pages", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name: page.name, allowedEmails: typed }) });
+      setPages((prev) => prev.map((p) => p.name === page.name ? { ...p, allowedEmails: typed } : p));
+      setEditingEmailsFor(null);
+    } catch { setError("Failed to update emails"); }
   };
 
   const handleMoveOrder = async (name: string, delta: number) => {
@@ -537,7 +562,8 @@ function PagesTab({ userEmail, isAdmin }: { userEmail: string; isAdmin: boolean 
                         <input type="checkbox" checked={page.active} onChange={(e) => handleToggleActive(page.name, e.target.checked)} style={{ width: 14, height: 14, cursor: "pointer" }} />
                         <span style={{ fontSize: 11, color: "var(--md-on-surface)", opacity: 0.7 }}>Active</span>
                       </label>
-                      <button onClick={() => { setEditingProjectsFor(page.name); setEditPageProjects([...page.projectIds]); }} style={{ ...ghostBtnStyle, padding: "4px 8px", fontSize: 11, opacity: 0.7 }}>Projects</button>
+                      <button onClick={() => { setEditingProjectsFor(page.name); setEditPageProjects([...page.projectIds]); setEditingEmailsFor(null); }} style={{ ...ghostBtnStyle, padding: "4px 8px", fontSize: 11, opacity: 0.7 }}>Projects</button>
+                      <button onClick={() => { setEditingEmailsFor(page.name); const others = page.allowedEmails.filter((e) => e !== page.createdBy); setEditPageEmails(others.join(", ")); setEditingProjectsFor(null); }} style={{ ...ghostBtnStyle, padding: "4px 8px", fontSize: 11, opacity: 0.7 }}>Emails</button>
                       <button onClick={() => openEditModal(page)} style={{ ...testBtnStyle, padding: "4px 10px", fontSize: 11 }}>Edit</button>
                       {deletingPage === page.name ? (
                         <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
@@ -566,6 +592,32 @@ function PagesTab({ userEmail, isAdmin }: { userEmail: string; isAdmin: boolean 
                     <div style={{ display: "flex", gap: 8, marginTop: 12 }}>
                       <button onClick={() => handleSaveProjects(page.name)} style={{ ...primaryBtnStyle, padding: "6px 16px", fontSize: 12 }}>Save</button>
                       <button onClick={() => setEditingProjectsFor(null)} style={ghostBtnStyle}>Cancel</button>
+                    </div>
+                  </div>
+                )}
+
+                {/* Inline direct email access panel */}
+                {editingEmailsFor === page.name && (
+                  <div style={{ marginTop: 12, padding: "12px 14px", background: "var(--md-surface-cont)", borderRadius: 8, border: "1px solid var(--md-outline-var)" }}>
+                    <div style={{ fontSize: 12, fontWeight: 600, color: "var(--md-on-surface)", marginBottom: 6 }}>Direct email access:</div>
+                    {page.createdBy && (
+                      <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 8, padding: "4px 8px", borderRadius: 6, background: "rgba(var(--md-primary-rgb, 103,80,164),0.08)", border: "1px solid var(--md-outline-var)" }}>
+                        <span style={{ fontSize: 11, color: "var(--md-primary)", fontWeight: 600 }}>🔒</span>
+                        <span style={{ fontSize: 12, color: "var(--md-on-surface)", opacity: 0.8 }}>{page.createdBy}</span>
+                        <span style={{ fontSize: 10, opacity: 0.5, color: "var(--md-on-surface)", marginLeft: 2 }}>(creator — protected)</span>
+                      </div>
+                    )}
+                    <textarea
+                      value={editPageEmails}
+                      onChange={(e) => setEditPageEmails(e.target.value)}
+                      placeholder="alice@example.com, bob@example.com"
+                      rows={2}
+                      style={{ ...inputStyle, resize: "vertical" }}
+                    />
+                    <p style={{ fontSize: 11, opacity: 0.5, color: "var(--md-on-surface)", margin: "4px 0 8px" }}>Comma-separated. Leave empty to rely on project access only.</p>
+                    <div style={{ display: "flex", gap: 8 }}>
+                      <button onClick={() => handleSaveEmails(page)} style={{ ...primaryBtnStyle, padding: "6px 16px", fontSize: 12 }}>Save</button>
+                      <button onClick={() => setEditingEmailsFor(null)} style={ghostBtnStyle}>Cancel</button>
                     </div>
                   </div>
                 )}

@@ -1,9 +1,8 @@
 /**
  * Page settings store — PostgreSQL backed.
  *
- * Each page (active flag, allowed emails, icon, projects, order) is stored as a JSONB row.
+ * Each page (active flag, allowed emails, icon, projects, order, creator) is stored as a JSONB row.
  * An in-memory cache per instance avoids redundant DB round-trips on reads.
- * Writes invalidate only the updated entry so other entries stay cached.
  */
 
 import { sql, ensureSchema } from "./db";
@@ -12,10 +11,11 @@ import { canUserViewProject, type Project } from "./project-settings";
 export interface PageSettings {
   active: boolean;
   allowedEmails: string[];
-  projectIds?: string[];   // a page can belong to multiple projects
+  projectIds?: string[];
   order?: number;
   icon?: string;
   iconColor?: string;
+  createdBy?: string;
 }
 
 export interface PageMetadata extends PageSettings {
@@ -23,7 +23,6 @@ export interface PageMetadata extends PageSettings {
   hasBackend: boolean;
 }
 
-// Per-instance cache; null = not loaded yet
 let _cache: Record<string, PageSettings> | null = null;
 
 export async function getAllPageSettings(): Promise<Record<string, PageSettings>> {
@@ -79,10 +78,17 @@ export async function canUserViewPage(
 ): Promise<boolean> {
   const settings = await getPageSettings(name);
   if (!settings.active) return false;
+  if (isAdmin) return true;
 
+  // Creator always has access to their own page
+  if (settings.createdBy && settings.createdBy === email) return true;
+
+  // Direct per-page email access
+  if (settings.allowedEmails.length > 0 && settings.allowedEmails.includes(email)) return true;
+
+  // Project-level access (any project the page belongs to)
   const projectIds = settings.projectIds ?? [];
   if (projectIds.length > 0) {
-    // User can view if they have access to ANY of the page's projects
     return projectIds.some((pid) => {
       const project = projects.find((p) => p.id === pid);
       if (!project) return false;
@@ -90,7 +96,8 @@ export async function canUserViewPage(
     });
   }
 
-  // Standalone page (no projects) — check page-level allowedEmails
+  // Standalone page with no emails and no projects = visible to all authenticated
   if (settings.allowedEmails.length === 0) return true;
-  return settings.allowedEmails.includes(email);
+
+  return false;
 }

@@ -76,6 +76,7 @@ export async function GET(request: NextRequest) {
     order: settings[p.name]?.order ?? 0,
     icon: settings[p.name]?.icon,
     iconColor: settings[p.name]?.iconColor,
+    createdBy: settings[p.name]?.createdBy,
   }));
 
   return NextResponse.json({ pages: pagesWithMeta });
@@ -150,11 +151,14 @@ export async function POST(request: NextRequest) {
       fs.writeFileSync(path.join(pageDir, "backend.py"), backendBuffer);
     }
 
-    await setPageSettings(name, { active: true, allowedEmails: [], projectIds, order: 0, icon, iconColor });
+    // Creator is always added to allowedEmails
+    const creatorEmail = user.email;
+    const pageAllowedEmails = creatorEmail ? [creatorEmail] : [];
+    await setPageSettings(name, { active: true, allowedEmails: pageAllowedEmails, projectIds, order: 0, icon, iconColor, createdBy: creatorEmail });
 
     return NextResponse.json({
       ok: true,
-      page: { name, hasBackend: !!backendFile && backendFile.size > 0, active: true, allowedEmails: [], projectIds, order: 0, icon, iconColor }
+      page: { name, hasBackend: !!backendFile && backendFile.size > 0, active: true, allowedEmails: pageAllowedEmails, projectIds, order: 0, icon, iconColor, createdBy: creatorEmail }
     });
   } catch (e) {
     console.error("[admin/pages] Failed to upload page:", e);
@@ -243,13 +247,19 @@ export async function PATCH(request: NextRequest) {
     }
 
     const current = (await getAllPageSettings())[name] ?? { active: true, allowedEmails: [], projectIds: [], order: 0 };
+    const finalEmails = allowedEmails !== undefined ? [...allowedEmails] : [...(current.allowedEmails ?? [])];
+    // Protect creator: ensure their email is never removed from the list
+    if (current.createdBy && !finalEmails.includes(current.createdBy)) {
+      finalEmails.push(current.createdBy);
+    }
     const updated: PageSettings = {
       active: active !== undefined ? active : current.active,
-      allowedEmails: allowedEmails !== undefined ? allowedEmails : (current.allowedEmails ?? []),
+      allowedEmails: finalEmails,
       projectIds: projectIds !== undefined ? projectIds : (current.projectIds ?? []),
       order: order !== undefined ? order : (current.order ?? 0),
       icon: icon !== undefined ? icon : current.icon,
       iconColor: iconColor !== undefined ? iconColor : current.iconColor,
+      createdBy: current.createdBy,
     };
 
     await setPageSettings(name, updated);

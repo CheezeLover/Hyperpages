@@ -117,11 +117,17 @@ export async function PATCH(request: NextRequest) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
+    let updatedEmails: string[] | undefined = Array.isArray(body.allowedEmails) ? [...body.allowedEmails] : undefined;
+    // Protect creator: ensure their email is never removed from the list
+    if (updatedEmails !== undefined && project.createdBy && !updatedEmails.includes(project.createdBy)) {
+      updatedEmails.push(project.createdBy);
+    }
+
     await updateProject(id, {
       name: body.name?.trim(),
       icon: body.icon !== undefined ? (body.icon.trim() || undefined) : undefined,
       iconColor: body.iconColor !== undefined ? (body.iconColor.trim() || undefined) : undefined,
-      allowedEmails: Array.isArray(body.allowedEmails) ? body.allowedEmails : undefined,
+      allowedEmails: updatedEmails,
     });
 
     return NextResponse.json({ ok: true });
