@@ -1,0 +1,79 @@
+{
+  "name": "Hyperset Orange Theme",
+  "version": "2.0.0",
+  "description": "Simplified two-mode theme - edit LIGHT and DARK sections below",
+
+  "light": {
+    "_description": "LIGHT MODE - Main interface colors",
+    
+    "primary": "#D35400",
+    "_primary_note": "Main accent color (logo, active buttons, links, icons)",
+    
+    "primaryHover": "#A04000",
+    "_primaryHover_note": "Darker shade for hover states on primary elements",
+    
+    "background": "#F8F9FA",
+    "_background_note": "Page background color (behind cards and panels)",
+    
+    "surface": "#FFFFFF",
+    "_surface_note": "Card/panel background color (content containers)",
+    
+    "textPrimary": "#1F2937",
+    "_textPrimary_note": "Main text color (headings, important content)",
+    
+    "textSecondary": "#4B5563",
+    "_textSecondary_note": "Secondary text (descriptions, metadata)",
+    
+    "textMuted": "#6B7280",
+    "_textMuted_note": "Muted text (placeholders, hints, disabled states)",
+    
+    "border": "#DEE2E6",
+    "_border_note": "Border/divider color (card outlines, separators)",
+    
+    "success": "#059669",
+    "_success_note": "Success states (Published badges, confirmations)",
+    
+    "warning": "#D97706",
+    "_warning_note": "Warning states (cautions, attention needed)",
+    
+    "error": "#DC2626",
+    "_error_note": "Error states (validation errors, failures)"
+  },
+
+  "dark": {
+    "_description": "DARK MODE - Main interface colors",
+    
+    "primary": "#FF8A5C",
+    "_primary_note": "Main accent color (logo, active buttons, links, icons)",
+    
+    "primaryHover": "#FF6B35",
+    "_primaryHover_note": "Brighter shade for hover states on primary elements",
+    
+    "background": "#0A0A0A",
+    "_background_note": "Page background color (behind cards and panels)",
+    
+    "surface": "#141414",
+    "_surface_note": "Card/panel background color (content containers)",
+    
+    "textPrimary": "#FAFAFA",
+    "_textPrimary_note": "Main text color (headings, important content)",
+    
+    "textSecondary": "#E5E5E5",
+    "_textSecondary_note": "Secondary text (descriptions, metadata)",
+    
+    "textMuted": "#A3A3A3",
+    "_textMuted_note": "Muted text (placeholders, hints, disabled states)",
+    
+    "border": "#404040",
+    "_border_note": "Border/divider color (card outlines, separators)",
+    
+    "success": "#34D399",
+    "_success_note": "Success states (Published badges, confirmations)",
+    
+    "warning": "#FBBF24",
+    "_warning_note": "Warning states (cautions, attention needed)",
+    
+    "error": "#F87171",
+    "_error_note": "Error states (validation errors, failures)"
+  }
+}

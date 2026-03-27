@@ -1,0 +1,70 @@
+# podman-compose.data.yml
+# Stateful services shared by the portal stack.
+#
+# Volume layout:
+#   portal_db_data  — PostgreSQL (pgvector) for portal admin settings,
+#                     pages config, and knowledge base
+#   hyperset_data   — file-based state under /hyperset/:
+#     /hyperset/pages/        static pages content
+#     /hyperset/caddy-data/   Caddy TLS certificates (XDG_DATA_HOME)
+#     /hyperset/caddy-config/ Caddy config cache (XDG_CONFIG_HOME)
+#
+# Start order:
+#   podman-compose -f podman-compose.data.yml -f podman-compose.yml up -d
+
+services:
+
+  # ── Portal database ───────────────────────────────────────────────────────
+  portal-db:
+    image: docker.io/pgvector/pgvector:pg15
+    container_name: hyperset-portal-db
+    environment:
+      - POSTGRES_USER=portal
+      - POSTGRES_PASSWORD=${PORTAL_DATABASE_PASSWORD:?PORTAL_DATABASE_PASSWORD must be set in .env}
+      - POSTGRES_DB=portal
+    volumes:
+      - portal_db_data:/var/lib/postgresql/data
+    networks:
+      - hyperset-net
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U portal -d portal"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  # ── Shared volume initializer ─────────────────────────────────────────────
+  pages-volume-init:
+    image: docker.io/library/busybox:latest
+    container_name: hyperset-pages-volume-init
+    volumes:
+      - hyperset_data:/hyperset
+      - ./Pages:/source/pages:ro,Z
+    command: >
+      sh -c "
+        if [ -f /hyperset/.initialized ]; then
+          echo 'Volume already initialized, skipping.' &&
+          exit 0;
+        fi &&
+        echo 'Creating hyperset_data subfolders...' &&
+        mkdir -p /hyperset/pages /hyperset/caddy-data /hyperset/caddy-config &&
+        chmod 777 /hyperset/pages /hyperset/caddy-data /hyperset/caddy-config &&
+        if [ -d /source/pages ] && [ \"\$(ls -A /source/pages)\" ]; then
+          echo 'Copying existing pages from ./Pages to shared volume...' &&
+          cp -r /source/pages/* /hyperset/pages/ &&
+          echo 'Copied pages:' &&
+          ls -la /hyperset/pages/;
+        else
+          echo 'No existing pages found in ./Pages';
+        fi &&
+        touch /hyperset/.initialized &&
+        echo 'Volume initialized'"
+    restart: "no"
+
+volumes:
+  portal_db_data:
+  hyperset_data:
+
+networks:
+  hyperset-net:
+    external: true

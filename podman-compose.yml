@@ -1,0 +1,102 @@
+# podman-compose.yml
+# Application services: portal, Caddy, pages.
+# Stateful backends (portal-db) live in podman-compose.data.yml.
+#
+# Start both files together:
+#   podman-compose -f podman-compose.data.yml -f podman-compose.yml up -d
+
+services:
+
+  # ---------------------------------------------------------------------------
+  # Caddy — reverse proxy, JWT auth, TLS termination
+  # ---------------------------------------------------------------------------
+  caddy:
+    build: ./Caddy
+    image: localhost/hyperset-caddy:latest
+    container_name: hyperset-caddy
+    ports:
+      - "443:443"
+      - "80:80"
+    environment:
+      - HYPERSET_DOMAIN=${HYPERSET_DOMAIN}
+      - AUTH_CRYPTO_KEY=${AUTH_CRYPTO_KEY}
+      - XDG_DATA_HOME=/hyperset/caddy-data
+      - XDG_CONFIG_HOME=/hyperset/caddy-config
+    env_file:
+      - ./.env
+    volumes:
+      - ./Caddy/Caddyfile:/etc/caddy/Caddyfile:Z
+      - ./Caddy/users.json:/data/users.json:Z
+      - ./theme.json:/Caddy/theme.json:Z
+      - ./logos:/Caddy/logos:Z
+      - hyperset_data:/hyperset
+    networks:
+      - hyperset-net
+    depends_on:
+      pages-volume-init:
+        condition: service_completed_successfully
+    restart: unless-stopped
+
+  # ---------------------------------------------------------------------------
+  # Pages service — serves static page content
+  # ---------------------------------------------------------------------------
+  pages:
+    build: ./Pages-Service
+    image: localhost/hyperset-pages:latest
+    container_name: hyperset-pages
+    environment:
+      - HYPERSET_DOMAIN=${HYPERSET_DOMAIN}
+      - PAGES_DIR=/hyperset/pages
+    volumes:
+      - hyperset_data:/hyperset
+    networks:
+      - hyperset-net
+    depends_on:
+      pages-volume-init:
+        condition: service_completed_successfully
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+
+  # ---------------------------------------------------------------------------
+  # Portal — Next.js app (page display, admin)
+  # ---------------------------------------------------------------------------
+  portal:
+    build:
+      context: .
+      dockerfile: ./portal-app/Dockerfile
+      args:
+        - HYPERSET_DOMAIN=${HYPERSET_DOMAIN}
+      shm_size: "256m"
+    image: localhost/hyperset-portal:latest
+    container_name: hyperset-portal
+    environment:
+      - HYPERSET_DOMAIN=${HYPERSET_DOMAIN}
+      - PAGES_DIR=/hyperset/pages
+      - PORTAL_DATABASE_URL=postgresql://portal:${PORTAL_DATABASE_PASSWORD:?PORTAL_DATABASE_PASSWORD must be set in .env}@hyperset-portal-db:5432/portal
+      - NODE_ENV=production
+    volumes:
+      - ./theme.json:/app/theme.json:Z
+      - hyperset_data:/hyperset
+    depends_on:
+      portal-db:
+        condition: service_healthy
+      pages-volume-init:
+        condition: service_completed_successfully
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:3000/api/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+    networks:
+      - hyperset-net
+    restart: unless-stopped
+
+networks:
+  hyperset-net:
+    external: true
