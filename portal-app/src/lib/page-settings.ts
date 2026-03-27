@@ -44,7 +44,7 @@ export async function getAllPageSettings(): Promise<Record<string, PageSettings>
       raw.projectIds = [raw.projectId as string];
     }
 
-    result[row.name] = raw as PageSettings;
+    result[row.name] = raw as unknown as PageSettings;
   }
   _cache = result;
   return result;
