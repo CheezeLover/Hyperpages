@@ -43,6 +43,8 @@ export function HypersetLayout({ pagesUrl, isAdmin, userEmail }: HypersetLayoutP
   const [adminOpen, setAdminOpen] = useState(false);
   const [isPortraitMode, setIsPortraitMode] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
+  // Bumped whenever a page's HTML file is replaced — forces the iframe to reload
+  const [iframeKey, setIframeKey] = useState(0);
 
   // ── Fetch raw data; never derives display state (no double setState tricks) ──
   const loadData = useCallback(async () => {
@@ -190,8 +192,8 @@ export function HypersetLayout({ pagesUrl, isAdmin, userEmail }: HypersetLayoutP
       >
         {selectedPage ? (
           <iframe
-            key={selectedPage.name}
-            src={`${pagesUrl}/${selectedPage.name}`}
+            key={`${selectedPage.name}-${iframeKey}`}
+            src={`${pagesUrl}/${selectedPage.name}${iframeKey > 0 ? `?v=${iframeKey}` : ""}`}
             title={selectedPage.name}
             style={{ width: "100%", height: "100%", border: "none" }}
           />
@@ -224,6 +226,7 @@ export function HypersetLayout({ pagesUrl, isAdmin, userEmail }: HypersetLayoutP
           selectedProjectId={selectedProjectId}
           onSelectProject={handleSelectProject}
           projects={projects}
+          onPageFilesChanged={() => setIframeKey((k) => k + 1)}
         />
       )}
     </div>

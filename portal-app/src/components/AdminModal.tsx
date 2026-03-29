@@ -14,6 +14,9 @@ export interface AdminModalProps {
   onSelectProject: (id: string) => void;
   /** Projects already fetched by the parent layout — no extra request needed. */
   projects: ProjectInfo[];
+  /** Called when a page's HTML/backend file is successfully replaced, so the
+   *  parent can force the iframe to reload instead of showing the cached version. */
+  onPageFilesChanged?: () => void;
 }
 
 interface PageInfo {
@@ -56,7 +59,7 @@ function ErrorBanner({ msg }: { msg: string }) {
 
 // ── Page Edit Modal ────────────────────────────────────────────────────────────
 function PageEditModal({
-  page, projects, userEmail, isAdmin, onClose, onSaved,
+  page, projects, userEmail, isAdmin, onClose, onSaved, onFilesReplaced,
 }: {
   page: PageInfo;
   projects: ProjectInfo[];
@@ -64,6 +67,7 @@ function PageEditModal({
   isAdmin: boolean;
   onClose: () => void;
   onSaved: () => void;
+  onFilesReplaced?: () => void;
 }) {
   const [editIcon, setEditIcon] = useState(page.icon || "");
   const [editIconColor, setEditIconColor] = useState(page.iconColor || "");
@@ -88,6 +92,8 @@ function PageEditModal({
         if (removeBackend) formData.append("removeBackend", "true");
         const res = await fetch("/api/admin/pages", { method: "PUT", body: formData });
         if (!res.ok) throw new Error(((await res.json()) as { error?: string }).error ?? "File update failed");
+        // Notify parent so it can reload the iframe instead of showing cached content
+        onFilesReplaced?.();
       }
       // 2. Update settings
       const res = await fetch("/api/admin/pages", {
@@ -253,7 +259,7 @@ function UploadForm({
 }
 
 // ── Projects + Pages Tab ───────────────────────────────────────────────────────
-function ProjectsTab({ userEmail, isAdmin }: { userEmail: string; isAdmin: boolean }) {
+function ProjectsTab({ userEmail, isAdmin, onPageFilesChanged }: { userEmail: string; isAdmin: boolean; onPageFilesChanged?: () => void }) {
   const [projects, setProjects] = useState<ProjectInfo[]>([]);
   const [pages, setPages] = useState<PageInfo[]>([]);
   const [loading, setLoading] = useState(true);
@@ -438,6 +444,7 @@ function ProjectsTab({ userEmail, isAdmin }: { userEmail: string; isAdmin: boole
           isAdmin={isAdmin}
           onClose={() => setEditModalPage(null)}
           onSaved={loadData}
+          onFilesReplaced={onPageFilesChanged}
         />
       )}
 
@@ -667,7 +674,7 @@ function ProjectsTab({ userEmail, isAdmin }: { userEmail: string; isAdmin: boole
 }
 
 // ── Main Admin Modal ───────────────────────────────────────────────────────────
-export function AdminModal({ onClose, userEmail, isAdmin, selectedProjectId, onSelectProject, projects }: AdminModalProps) {
+export function AdminModal({ onClose, userEmail, isAdmin, selectedProjectId, onSelectProject, projects, onPageFilesChanged }: AdminModalProps) {
 
   return (
     <>
@@ -720,7 +727,7 @@ export function AdminModal({ onClose, userEmail, isAdmin, selectedProjectId, onS
 
           {/* Body */}
           <div style={{ flex: 1, overflowY: "auto", padding: "20px 24px" }}>
-            <ProjectsTab userEmail={userEmail} isAdmin={isAdmin} />
+            <ProjectsTab userEmail={userEmail} isAdmin={isAdmin} onPageFilesChanged={onPageFilesChanged} />
           </div>
         </div>
       </div>
