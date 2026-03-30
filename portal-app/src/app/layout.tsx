@@ -94,7 +94,7 @@ function getThemeScript() {
                 root.style.setProperty('--theme-is-dark', '0');
               }
               
-              console.log('[Theme] Build-time theme loaded: ${theme.name || "Custom"}');
+              console.log('[Theme] Build-time theme loaded: ' + ${JSON.stringify(theme.name || 'Custom')});
             })();
           `;
         }

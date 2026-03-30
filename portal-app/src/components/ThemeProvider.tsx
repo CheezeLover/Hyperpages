@@ -122,25 +122,22 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   useEffect(() => {
+    let cleanup: (() => void) | undefined;
+
     async function init() {
       const theme = await loadTheme();
-      if (theme) {
-        const isDark = getSystemDarkMode();
-        applyTheme(theme, isDark);
-        
-        const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
-        const handleChange = (e: MediaQueryListEvent) => {
-          applyTheme(theme, e.matches);
-        };
-        mediaQuery.addEventListener('change', handleChange);
-        
-        setThemeLoaded(true);
-      } else {
-        setThemeLoaded(true);
-      }
+      setThemeLoaded(true);
+      if (!theme) return;
+      const isDark = getSystemDarkMode();
+      applyTheme(theme, isDark);
+      const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
+      const handleChange = (e: MediaQueryListEvent) => applyTheme(theme, e.matches);
+      mediaQuery.addEventListener('change', handleChange);
+      cleanup = () => mediaQuery.removeEventListener('change', handleChange);
     }
 
     init();
+    return () => cleanup?.();
   }, [loadTheme, applyTheme]);
 
   return <>{children}</>;

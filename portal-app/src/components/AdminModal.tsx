@@ -288,8 +288,8 @@ function ProjectsTab({ userEmail, isAdmin, onPageFilesChanged }: { userEmail: st
   const loadData = useCallback(async () => {
     try {
       const [pagesRes, projRes] = await Promise.all([
-        fetch("/api/admin/pages"),
-        fetch("/api/admin/projects"),
+        fetch("/api/admin/pages", { credentials: "include" }),
+        fetch("/api/admin/projects", { credentials: "include" }),
       ]);
       if (!pagesRes.ok || !projRes.ok) { setError("Failed to load data"); return; }
       const { pages: pageItems } = await pagesRes.json() as { pages: PageInfo[] };
@@ -375,11 +375,12 @@ function ProjectsTab({ userEmail, isAdmin, onPageFilesChanged }: { userEmail: st
   // ── Page handlers ────────────────────────────────────────────────────────────
   const handleToggleActive = async (pageName: string, active: boolean) => {
     try {
-      await fetch("/api/admin/pages", {
+      const res = await fetch("/api/admin/pages", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ name: pageName, active }),
       });
+      if (!res.ok) { setError("Failed to update page"); return; }
       setPages((prev) => prev.map((p) => p.name === pageName ? { ...p, active } : p));
     } catch { setError("Failed to update page"); }
   };
@@ -420,7 +421,8 @@ function ProjectsTab({ userEmail, isAdmin, onPageFilesChanged }: { userEmail: st
 
   const handleDeletePage = async (name: string) => {
     try {
-      await fetch("/api/admin/pages", { method: "DELETE", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name }) });
+      const res = await fetch("/api/admin/pages", { method: "DELETE", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name }) });
+      if (!res.ok) { setError("Failed to delete page"); return; }
       setPages((prev) => prev.filter((p) => p.name !== name));
       setDeletingPage(null);
     } catch { setError("Failed to delete page"); }

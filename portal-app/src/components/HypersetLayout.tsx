@@ -142,7 +142,6 @@ export function HypersetLayout({ pagesUrl, isAdmin, userEmail }: HypersetLayoutP
 
   const handleSelectProject = (id: string) => {
     setSelectedProjectId(id);
-    setSelectedPage(null);
   };
 
   // ── Export ────────────────────────────────────────────────────────────────────
