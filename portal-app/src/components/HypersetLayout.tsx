@@ -191,7 +191,7 @@ export function HypersetLayout({ pagesUrl, isAdmin, userEmail }: HypersetLayoutP
       >
         {selectedPage ? (
           <iframe
-            key={`${selectedPage.name}-${iframeKey}`}
+            key={iframeKey}
             src={`${pagesUrl}/${selectedPage.name}${iframeKey > 0 ? `?v=${iframeKey}` : ""}`}
             title={selectedPage.name}
             style={{ width: "100%", height: "100%", border: "none" }}
