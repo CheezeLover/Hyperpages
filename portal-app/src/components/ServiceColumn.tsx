@@ -75,6 +75,22 @@ function ServiceBtn({
 }
 
 export function ServiceColumn({ isPortraitMode, pages, selectedPage, onSelectPage, onExportPdf, isExporting, onOpenAdmin, onDisconnect }: ServiceColumnProps) {
+  const [isFullscreen, setIsFullscreen] = React.useState(false);
+
+  React.useEffect(() => {
+    const onChange = () => setIsFullscreen(!!document.fullscreenElement);
+    document.addEventListener("fullscreenchange", onChange);
+    return () => document.removeEventListener("fullscreenchange", onChange);
+  }, []);
+
+  const toggleFullscreen = () => {
+    if (!document.fullscreenElement) {
+      document.documentElement.requestFullscreen().catch(() => {});
+    } else {
+      document.exitFullscreen().catch(() => {});
+    }
+  };
+
   return (
     <div
       style={{
@@ -108,6 +124,19 @@ export function ServiceColumn({ isPortraitMode, pages, selectedPage, onSelectPag
       ))}
 
       {!isPortraitMode && <div style={{ flex: 1 }} />}
+
+      {/* Fullscreen toggle */}
+      <ServiceBtn active={isFullscreen} tooltip={isFullscreen ? "Exit fullscreen" : "Fullscreen"} onClick={toggleFullscreen} colorScheme="secondary" isPortrait={isPortraitMode}>
+        {isFullscreen ? (
+          <svg viewBox="0 0 24 24" width={20} height={20} fill="currentColor">
+            <path d="M5 16h3v3h2v-5H5v2zm3-8H5v2h5V5H8v3zm6 11h2v-3h3v-2h-5v5zm2-11V5h-2v5h5V8h-3z"/>
+          </svg>
+        ) : (
+          <svg viewBox="0 0 24 24" width={20} height={20} fill="currentColor">
+            <path d="M7 14H5v5h5v-2H7v-3zm-2-4h2V7h3V5H5v5zm12 7h-3v2h5v-5h-2v3zM14 5v2h3v3h2V5h-5z"/>
+          </svg>
+        )}
+      </ServiceBtn>
 
       {/* Export */}
       {pages.length > 0 && (
