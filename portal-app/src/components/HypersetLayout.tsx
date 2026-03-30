@@ -185,6 +185,9 @@ export function HypersetLayout({ pagesUrl, isAdmin, userEmail }: HypersetLayoutP
     }
   };
 
+  const selectedProject = projects.find((p) => p.id === selectedProjectId);
+  const panelBg = selectedProject?.iconColor ?? "var(--md-surface-cont)";
+
   return (
     <div
       id="hyperset-container"
@@ -201,7 +204,7 @@ export function HypersetLayout({ pagesUrl, isAdmin, userEmail }: HypersetLayoutP
         style={{
           flex: 1,
           overflow: "hidden",
-          background: "var(--md-surface-cont)",
+          background: panelBg,
           position: "relative",
         }}
       >
