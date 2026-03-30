@@ -185,11 +185,7 @@ export function HypersetLayout({ pagesUrl, isAdmin, userEmail }: HypersetLayoutP
     }
   };
 
-  const selectedProject = React.useMemo(
-    () => projects.find((p) => p.id === selectedProjectId),
-    [projects, selectedProjectId],
-  );
-  const panelBg = selectedProject?.iconColor ?? "var(--md-surface-cont)";
+  const panelBg = projects.find((p) => p.id === selectedProjectId)?.iconColor ?? "var(--md-surface-cont)";
 
   return (
     <div
