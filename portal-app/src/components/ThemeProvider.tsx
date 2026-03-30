@@ -122,10 +122,12 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   useEffect(() => {
+    let isMounted = true;
     let cleanup: (() => void) | undefined;
 
     async function init() {
       const theme = await loadTheme();
+      if (!isMounted) return;
       setThemeLoaded(true);
       if (!theme) return;
       const isDark = getSystemDarkMode();
@@ -137,7 +139,10 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
     }
 
     init();
-    return () => cleanup?.();
+    return () => {
+      isMounted = false;
+      cleanup?.();
+    };
   }, [loadTheme, applyTheme]);
 
   return <>{children}</>;

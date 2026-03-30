@@ -185,7 +185,10 @@ export function HypersetLayout({ pagesUrl, isAdmin, userEmail }: HypersetLayoutP
     }
   };
 
-  const selectedProject = projects.find((p) => p.id === selectedProjectId);
+  const selectedProject = React.useMemo(
+    () => projects.find((p) => p.id === selectedProjectId),
+    [projects, selectedProjectId],
+  );
   const panelBg = selectedProject?.iconColor ?? "var(--md-surface-cont)";
 
   return (
@@ -210,11 +213,9 @@ export function HypersetLayout({ pagesUrl, isAdmin, userEmail }: HypersetLayoutP
       >
         {/* Empty state — shown when no page is selected */}
         {!selectedPage && (
-          <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", color: "var(--md-on-surface)", opacity: 0.4, fontSize: 14, textAlign: "center" }}>
-            <div>
-              <div style={{ fontSize: 32, marginBottom: 8 }}>◻</div>
-              {projects.length === 0 ? "No projects available" : "No pages in this project"}
-            </div>
+          <div style={{ position: "absolute", inset: 0, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", color: "var(--md-on-surface)", opacity: 0.4, fontSize: 14, textAlign: "center" }}>
+            <div style={{ fontSize: 32, marginBottom: 8 }}>◻</div>
+            {projects.length === 0 ? "No projects available" : "No pages in this project"}
           </div>
         )}
         {/* One iframe per page — mounted on first visit, shown/hidden thereafter.
