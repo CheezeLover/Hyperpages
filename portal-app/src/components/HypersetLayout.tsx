@@ -45,6 +45,8 @@ export function HypersetLayout({ pagesUrl, isAdmin, userEmail }: HypersetLayoutP
   const [isExporting, setIsExporting] = useState(false);
   // Bumped whenever a page's HTML file is replaced — forces the iframe to reload
   const [iframeKey, setIframeKey] = useState(0);
+  // Pages whose iframes have been mounted at least once — kept alive to avoid reload flash
+  const [mountedPages, setMountedPages] = useState<Set<string>>(new Set());
 
   // ── Fetch raw data; never derives display state (no double setState tricks) ──
   const loadData = useCallback(async () => {
@@ -74,6 +76,7 @@ export function HypersetLayout({ pagesUrl, isAdmin, userEmail }: HypersetLayoutP
     if (selectedProjectId === null) {
       setPages([]);
       setSelectedPage(null);
+      setMountedPages(new Set());
       return;
     }
     const filtered = allPages
@@ -92,6 +95,12 @@ export function HypersetLayout({ pagesUrl, isAdmin, userEmail }: HypersetLayoutP
     setSelectedPage((sel) => {
       const stillExists = sel !== null && filtered.some((p) => p.name === sel.name);
       return stillExists ? sel : (filtered[0] ?? null);
+    });
+    // Evict mounted pages that are no longer in the current project
+    setMountedPages((prev) => {
+      const active = new Set(filtered.map((p) => p.name));
+      const next = new Set([...prev].filter((n) => active.has(n)));
+      return next.size === prev.size ? prev : next;
     });
   }, [selectedProjectId, allPages]);
 
@@ -140,6 +149,15 @@ export function HypersetLayout({ pagesUrl, isAdmin, userEmail }: HypersetLayoutP
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [pages, adminOpen]);
 
+  // ── Track mounted iframes — add page on first selection ─────────────────────
+  useEffect(() => {
+    if (!selectedPage) return;
+    setMountedPages((prev) => {
+      if (prev.has(selectedPage.name)) return prev;
+      return new Set([...prev, selectedPage.name]);
+    });
+  }, [selectedPage]);
+
   const handleSelectProject = (id: string) => {
     setSelectedProjectId(id);
   };
@@ -184,24 +202,39 @@ export function HypersetLayout({ pagesUrl, isAdmin, userEmail }: HypersetLayoutP
           flex: 1,
           overflow: "hidden",
           background: "var(--md-surface-cont)",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
+          position: "relative",
         }}
       >
-        {selectedPage ? (
-          <iframe
-            key={iframeKey}
-            src={`${pagesUrl}/${selectedPage.name}${iframeKey > 0 ? `?v=${iframeKey}` : ""}`}
-            title={selectedPage.name}
-            style={{ width: "100%", height: "100%", border: "none" }}
-          />
-        ) : (
-          <div style={{ color: "var(--md-on-surface)", opacity: 0.4, fontSize: 14, textAlign: "center" }}>
-            <div style={{ fontSize: 32, marginBottom: 8 }}>◻</div>
-            {projects.length === 0 ? "No projects available" : "No pages in this project"}
+        {/* Empty state — shown when no page is selected */}
+        {!selectedPage && (
+          <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", color: "var(--md-on-surface)", opacity: 0.4, fontSize: 14, textAlign: "center" }}>
+            <div>
+              <div style={{ fontSize: 32, marginBottom: 8 }}>◻</div>
+              {projects.length === 0 ? "No projects available" : "No pages in this project"}
+            </div>
           </div>
         )}
+        {/* One iframe per page — mounted on first visit, shown/hidden thereafter.
+            This eliminates the white flash when switching between already-loaded pages. */}
+        {pages.map((page) => {
+          if (!mountedPages.has(page.name)) return null;
+          const isSelected = selectedPage?.name === page.name;
+          return (
+            <iframe
+              key={`${page.name}-${iframeKey}`}
+              src={`${pagesUrl}/${page.name}${iframeKey > 0 ? `?v=${iframeKey}` : ""}`}
+              title={page.name}
+              style={{
+                position: "absolute",
+                inset: 0,
+                width: "100%",
+                height: "100%",
+                border: "none",
+                display: isSelected ? "block" : "none",
+              }}
+            />
+          );
+        })}
       </div>
 
       {/* Service column */}
