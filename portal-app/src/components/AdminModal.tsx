@@ -277,7 +277,9 @@ function ProjectsTab({ userEmail, isAdmin, onPageFilesChanged }: { userEmail: st
   const [editIcon, setEditIcon] = useState("");
   const [editIconColor, setEditIconColor] = useState("");
   const [editEmails, setEditEmails] = useState("");
+  const [savingProject, setSavingProject] = useState(false);
   const [deletingProject, setDeletingProject] = useState<string | null>(null);
+  const [deletingProjectLoading, setDeletingProjectLoading] = useState(false);
 
   // Page state
   const [editModalPage, setEditModalPage] = useState<PageInfo | null>(null);
@@ -285,19 +287,20 @@ function ProjectsTab({ userEmail, isAdmin, onPageFilesChanged }: { userEmail: st
   const [deletingPage, setDeletingPage] = useState<string | null>(null);
   const [showTemplates, setShowTemplates] = useState(false);
 
-  const loadData = useCallback(async () => {
+  const loadData = useCallback(async (silent = false) => {
     try {
       const [pagesRes, projRes] = await Promise.all([
         fetch("/api/admin/pages", { credentials: "include" }),
         fetch("/api/admin/projects", { credentials: "include" }),
       ]);
-      if (!pagesRes.ok || !projRes.ok) { setError("Failed to load data"); return; }
+      if (!pagesRes.ok || !projRes.ok) { if (!silent) setError("Failed to load data"); return; }
       const { pages: pageItems } = await pagesRes.json() as { pages: PageInfo[] };
       const { projects: projectItems } = await projRes.json() as { projects: ProjectInfo[] };
       setPages(pageItems);
       setProjects(projectItems);
+      setError(""); // clear any stale error banner on successful refresh
     } catch {
-      setError("Failed to load data");
+      if (!silent) setError("Failed to load data");
     } finally {
       setLoading(false);
     }
@@ -327,7 +330,7 @@ function ProjectsTab({ userEmail, isAdmin, onPageFilesChanged }: { userEmail: st
       });
       if (!res.ok) throw new Error(((await res.json()) as { error?: string }).error ?? "Create failed");
       setShowCreate(false); setNewName(""); setNewIcon(""); setNewIconColor(""); setNewEmails("");
-      loadData();
+      loadData(true);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Create failed");
     } finally {
@@ -342,7 +345,7 @@ function ProjectsTab({ userEmail, isAdmin, onPageFilesChanged }: { userEmail: st
   };
 
   const handleSaveProject = async (id: string) => {
-    setError("");
+    setSavingProject(true); setError("");
     try {
       const emails = editEmails.split(",").map((e) => e.trim()).filter(Boolean);
       const res = await fetch("/api/admin/projects", {
@@ -351,14 +354,16 @@ function ProjectsTab({ userEmail, isAdmin, onPageFilesChanged }: { userEmail: st
         body: JSON.stringify({ id, name: editName.trim(), icon: editIcon.trim() || undefined, iconColor: editIconColor.trim() || undefined, allowedEmails: emails }),
       });
       if (!res.ok) throw new Error(((await res.json()) as { error?: string }).error ?? "Update failed");
-      setEditingProject(null); loadData();
+      setEditingProject(null); loadData(true);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Update failed");
+    } finally {
+      setSavingProject(false);
     }
   };
 
   const handleDeleteProject = async (id: string) => {
-    setError("");
+    setDeletingProjectLoading(true); setError("");
     try {
       const res = await fetch("/api/admin/projects", {
         method: "DELETE",
@@ -366,9 +371,11 @@ function ProjectsTab({ userEmail, isAdmin, onPageFilesChanged }: { userEmail: st
         body: JSON.stringify({ id }),
       });
       if (!res.ok) throw new Error(((await res.json()) as { error?: string }).error ?? "Delete failed");
-      setDeletingProject(null); loadData();
+      setDeletingProject(null); loadData(true);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Delete failed");
+    } finally {
+      setDeletingProjectLoading(false);
     }
   };
 
@@ -445,7 +452,7 @@ function ProjectsTab({ userEmail, isAdmin, onPageFilesChanged }: { userEmail: st
           userEmail={userEmail}
           isAdmin={isAdmin}
           onClose={() => setEditModalPage(null)}
-          onSaved={loadData}
+          onSaved={() => loadData(true)}
           onFilesReplaced={onPageFilesChanged}
         />
       )}
@@ -547,8 +554,8 @@ function ProjectsTab({ userEmail, isAdmin, onPageFilesChanged }: { userEmail: st
                     )}
                     <textarea value={editEmails} onChange={(e) => setEditEmails(e.target.value)} placeholder="email1@ex.com, email2@ex.com" rows={2} style={{ ...inputStyle, resize: "vertical" }} />
                     <div style={{ display: "flex", gap: 8 }}>
-                      <button onClick={() => handleSaveProject(project.id)} style={{ ...primaryBtnStyle, padding: "6px 16px", fontSize: 12 }}>Save</button>
-                      <button onClick={() => setEditingProject(null)} style={ghostBtnStyle}>Cancel</button>
+                      <button onClick={() => handleSaveProject(project.id)} disabled={savingProject} style={{ ...primaryBtnStyle, padding: "6px 16px", fontSize: 12, opacity: savingProject ? 0.6 : 1 }}>{savingProject ? "Saving…" : "Save"}</button>
+                      <button onClick={() => setEditingProject(null)} disabled={savingProject} style={{ ...ghostBtnStyle, opacity: savingProject ? 0.5 : 1 }}>Cancel</button>
                     </div>
                   </div>
                 ) : (
@@ -571,8 +578,8 @@ function ProjectsTab({ userEmail, isAdmin, onPageFilesChanged }: { userEmail: st
                         {deletingProject === project.id ? (
                           <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
                             <span style={{ fontSize: 11, color: "#ef5350" }}>Delete?</span>
-                            <button onClick={() => handleDeleteProject(project.id)} style={{ ...dangerBtnStyle, padding: "4px 8px" }}>Yes</button>
-                            <button onClick={() => setDeletingProject(null)} style={{ ...ghostBtnStyle, padding: "4px 8px" }}>No</button>
+                            <button onClick={() => handleDeleteProject(project.id)} disabled={deletingProjectLoading} style={{ ...dangerBtnStyle, padding: "4px 8px", opacity: deletingProjectLoading ? 0.6 : 1 }}>{deletingProjectLoading ? "…" : "Yes"}</button>
+                            <button onClick={() => setDeletingProject(null)} disabled={deletingProjectLoading} style={{ ...ghostBtnStyle, padding: "4px 8px", opacity: deletingProjectLoading ? 0.5 : 1 }}>No</button>
                           </div>
                         ) : (
                           <button onClick={() => setDeletingProject(project.id)} style={dangerBtnStyle}>Remove</button>
@@ -654,7 +661,7 @@ function ProjectsTab({ userEmail, isAdmin, onPageFilesChanged }: { userEmail: st
                       <UploadForm
                         projectId={project.id}
                         onClose={() => setUploadForProject(null)}
-                        onUploaded={loadData}
+                        onUploaded={() => loadData(true)}
                       />
                     ) : (
                       <button
