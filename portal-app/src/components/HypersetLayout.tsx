@@ -167,20 +167,29 @@ export function HypersetLayout({ pagesUrl, isAdmin, userEmail }: HypersetLayoutP
     return () => window.removeEventListener("message", handleMessage);
   }, [navigateByKey, adminOpen]);
 
-  // Focus-sentinel fallback: when a cross-origin iframe captures keyboard focus
-  // (detected via focusin on the <iframe> element in the parent document), we
-  // immediately redirect focus to an invisible sentinel div so the parent
-  // window's keydown handler keeps working.  Mouse events are unaffected
-  // (pointer-events:none) so clicks/scrolling inside the iframe still work.
+  // Focus-sentinel: keep arrow-key page navigation working even after the user
+  // clicks inside an iframe.
+  //
+  // Cross-origin iframes steal keyboard focus when clicked; parent window
+  // keydown listeners stop firing.  "focusin" on the <iframe> element is NOT
+  // reliable across browsers for cross-origin frames.  What IS reliable is
+  // window.blur — it always fires when any child iframe captures focus.
+  //
+  // After blur we wait one tick (setTimeout 0) so document.activeElement has
+  // settled, confirm it is an <iframe>, then redirect focus to an invisible
+  // sentinel div in the parent document.  The sentinel has pointer-events:none
+  // so all mouse events (clicks, scrolling) still reach the iframe normally.
   useEffect(() => {
-    const onFocusIn = (e: FocusEvent) => {
-      if ((e.target as HTMLElement)?.tagName === "IFRAME") {
-        const sentinel = document.getElementById("hyperset-focus-sentinel") as HTMLDivElement | null;
-        sentinel?.focus({ preventScroll: true });
-      }
+    const onWindowBlur = () => {
+      setTimeout(() => {
+        if (document.activeElement?.tagName === "IFRAME") {
+          (document.getElementById("hyperset-focus-sentinel") as HTMLElement | null)
+            ?.focus({ preventScroll: true });
+        }
+      }, 0);
     };
-    document.addEventListener("focusin", onFocusIn);
-    return () => document.removeEventListener("focusin", onFocusIn);
+    window.addEventListener("blur", onWindowBlur);
+    return () => window.removeEventListener("blur", onWindowBlur);
   }, []);
 
   // ── Track mounted iframes — add page on first selection ─────────────────────
