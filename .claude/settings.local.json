@@ -5,7 +5,10 @@
       "Bash(node_modules/.bin/next build:*)",
       "Bash(node -e \":*)",
       "Bash(find '/c/Users/VincentCROISE/OneDrive - Ginesis Finance/Documents/GitHub/Hyperset/Hyperset/Hyperpages/Pages-Service' -type f -name *.ts -o -name *.js -o -name *.py)",
-      "Bash(find 'C:\\\\Users\\\\VincentCROISE\\\\OneDrive - Ginesis Finance\\\\Documents\\\\GitHub\\\\Hyperset\\\\Hyperset\\\\Hyperpages\\\\portal-app' -name index.html -o -name *.html)"
+      "Bash(find 'C:\\\\Users\\\\VincentCROISE\\\\OneDrive - Ginesis Finance\\\\Documents\\\\GitHub\\\\Hyperset\\\\Hyperset\\\\Hyperpages\\\\portal-app' -name index.html -o -name *.html)",
+      "Bash(docker ps:*)",
+      "Bash(podman ps:*)",
+      "Bash(powershell -Command \"podman ps --format ''table {{.Names}}\\\\t{{.Image}}\\\\t{{.Status}}''\")"
     ]
   }
 }
