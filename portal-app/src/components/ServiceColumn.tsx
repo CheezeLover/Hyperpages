@@ -139,6 +139,7 @@ export function ServiceColumn({ isPortraitMode, pages, selectedPage, onSelectPag
   } : {};
 
   return (
+    <>
     <div
       onMouseEnter={() => {
         if (isFullscreen && !isPortraitMode) {
@@ -230,25 +231,28 @@ export function ServiceColumn({ isPortraitMode, pages, selectedPage, onSelectPag
         </ServiceBtn>
       )}
 
-      {/* ── Fullscreen hot-zone ───────────────────────────────────────────────
-          A transparent strip fixed to the right edge of the viewport.
-          It sits above the iframe (z-index 99) so it always receives mouse
-          events even when the iframe is full-width and the bar is collapsed.
-          Only active (pointerEvents auto) while the bar is hidden.          */}
-      {isFullscreen && !isPortraitMode && (
-        <div
-          style={{
-            position: "fixed",
-            right: 0,
-            top: 0,
-            width: EDGE_TRIGGER_PX,
-            height: "100%",
-            zIndex: 99,
-            pointerEvents: collapsed ? "auto" : "none",
-          }}
-          onMouseEnter={() => { showBar(); window.focus(); }}
-        />
-      )}
     </div>
+
+    {/* ── Fullscreen hot-zone ─────────────────────────────────────────────────
+        Rendered as a SIBLING of the bar div (not a child) so that its own
+        position:fixed is always relative to the viewport.  If it were inside
+        the bar div it would inherit the parent's transform:translateX(100%) and
+        slide off-screen along with the bar — defeating its purpose.
+        Only active (pointerEvents auto) while the bar is hidden.            */}
+    {isFullscreen && !isPortraitMode && (
+      <div
+        style={{
+          position: "fixed",
+          right: 0,
+          top: 0,
+          width: EDGE_TRIGGER_PX,
+          height: "100%",
+          zIndex: 99,
+          pointerEvents: collapsed ? "auto" : "none",
+        }}
+        onMouseEnter={() => { showBar(); window.focus(); }}
+      />
+    )}
+    </>
   );
 }
