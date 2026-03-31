@@ -145,9 +145,9 @@ export function ServiceColumn({ isPortraitMode, pages, selectedPage, onSelectPag
         if (isFullscreen && !isPortraitMode) {
           // Pause auto-hide while the cursor is on the bar
           if (hideTimerRef.current) { clearTimeout(hideTimerRef.current); hideTimerRef.current = null; }
-          // Restore window focus so arrow-key page navigation keeps working
-          // after the user clicked inside the iframe
-          window.focus();
+          // NOTE: we deliberately do NOT call window.focus() here.
+          // Doing so fires a browser focus event mid-hover which can
+          // interrupt a click handler on the buttons below.
         }
       }}
       onMouseLeave={() => {
@@ -234,21 +234,23 @@ export function ServiceColumn({ isPortraitMode, pages, selectedPage, onSelectPag
     </div>
 
     {/* ── Fullscreen hot-zone ─────────────────────────────────────────────────
-        Rendered as a SIBLING of the bar div (not a child) so that its own
-        position:fixed is always relative to the viewport.  If it were inside
-        the bar div it would inherit the parent's transform:translateX(100%) and
-        slide off-screen along with the bar — defeating its purpose.
-        Only active (pointerEvents auto) while the bar is hidden.            */}
+        Rendered as a SIBLING of the bar div (not a child) so its position:fixed
+        is always relative to the viewport — a child would inherit the parent's
+        transform:translateX(100%) and slide off-screen with the bar.
+        Width is physically 0 while the bar is visible (not just pointerEvents:none)
+        so it has zero hit-area and can never interfere with bar button clicks.
+        window.focus() here (not on bar onMouseEnter) restores keyboard navigation
+        without racing against click events on bar buttons.                    */}
     {isFullscreen && !isPortraitMode && (
       <div
         style={{
           position: "fixed",
           right: 0,
           top: 0,
-          width: EDGE_TRIGGER_PX,
+          width: collapsed ? EDGE_TRIGGER_PX : 0,
           height: "100%",
           zIndex: 99,
-          pointerEvents: collapsed ? "auto" : "none",
+          overflow: "hidden",
         }}
         onMouseEnter={() => { showBar(); window.focus(); }}
       />
