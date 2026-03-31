@@ -112,15 +112,11 @@ export function ServiceColumn({ isPortraitMode, pages, selectedPage, onSelectPag
     return () => { if (hideTimerRef.current) clearTimeout(hideTimerRef.current); };
   }, [isFullscreen, scheduleHide]);
 
-  // Reveal bar when mouse approaches the right edge of the screen
-  React.useEffect(() => {
-    if (!isFullscreen || isPortraitMode) return;
-    const onMouseMove = (e: MouseEvent) => {
-      if (e.clientX >= window.innerWidth - EDGE_TRIGGER_PX) showBar();
-    };
-    document.addEventListener("mousemove", onMouseMove);
-    return () => document.removeEventListener("mousemove", onMouseMove);
-  }, [isFullscreen, isPortraitMode, showBar]);
+  // NOTE: We intentionally do NOT use a document.mousemove listener to reveal
+  // the bar.  When the bar is position:fixed and the iframe fills the full width,
+  // mouse events near the right edge are captured by the iframe and never bubble
+  // to document.  Instead, we render a thin transparent hot-zone div (see JSX
+  // below) that sits above the iframe in z-order and handles mouseenter directly.
 
   const toggleFullscreen = () => {
     if (!document.fullscreenElement) {
@@ -145,10 +141,12 @@ export function ServiceColumn({ isPortraitMode, pages, selectedPage, onSelectPag
   return (
     <div
       onMouseEnter={() => {
-        // Pause auto-hide while the cursor is on the bar
-        if (isFullscreen && !isPortraitMode && hideTimerRef.current) {
-          clearTimeout(hideTimerRef.current);
-          hideTimerRef.current = null;
+        if (isFullscreen && !isPortraitMode) {
+          // Pause auto-hide while the cursor is on the bar
+          if (hideTimerRef.current) { clearTimeout(hideTimerRef.current); hideTimerRef.current = null; }
+          // Restore window focus so arrow-key page navigation keeps working
+          // after the user clicked inside the iframe
+          window.focus();
         }
       }}
       onMouseLeave={() => {
@@ -230,6 +228,26 @@ export function ServiceColumn({ isPortraitMode, pages, selectedPage, onSelectPag
             <path d="M17 7l-1.41 1.41L18.17 11H8v2h10.17l-2.58 2.58L17 17l5-5zM4 5h8V3H4c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h8v-2H4V5z"/>
           </svg>
         </ServiceBtn>
+      )}
+
+      {/* ── Fullscreen hot-zone ───────────────────────────────────────────────
+          A transparent strip fixed to the right edge of the viewport.
+          It sits above the iframe (z-index 99) so it always receives mouse
+          events even when the iframe is full-width and the bar is collapsed.
+          Only active (pointerEvents auto) while the bar is hidden.          */}
+      {isFullscreen && !isPortraitMode && (
+        <div
+          style={{
+            position: "fixed",
+            right: 0,
+            top: 0,
+            width: EDGE_TRIGGER_PX,
+            height: "100%",
+            zIndex: 99,
+            pointerEvents: collapsed ? "auto" : "none",
+          }}
+          onMouseEnter={() => { showBar(); window.focus(); }}
+        />
       )}
     </div>
   );
