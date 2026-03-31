@@ -209,13 +209,14 @@ async def health_check():
     )
 
 
+# capture=true: intercepts arrow keys before any element can stopPropagation(),
+# then relays them to the parent portal window for page navigation.
 _ARROW_RELAY = (
     "<script>(function(){"
-    # capture=true so we see the event before any element can stopPropagation()
     "window.addEventListener('keydown',function(e){"
     "if(['ArrowLeft','ArrowRight','ArrowUp','ArrowDown'].indexOf(e.key)!==-1){"
     "try{window.parent.postMessage({type:'hyperset-keydown',key:e.key},'*');}catch(err){}"
-    "}},true);"  # <-- capture phase
+    "}},true);"
     "})();</script>"
 )
 

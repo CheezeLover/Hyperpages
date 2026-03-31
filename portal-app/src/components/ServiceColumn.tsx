@@ -102,11 +102,10 @@ export function ServiceColumn({ isPortraitMode, pages, selectedPage, onSelectPag
 
   // On fullscreen enter/exit: reset collapsed state and timer
   React.useEffect(() => {
+    setCollapsed(false);
     if (isFullscreen) {
-      setCollapsed(false);
       scheduleHide();
     } else {
-      setCollapsed(false);
       if (hideTimerRef.current) clearTimeout(hideTimerRef.current);
     }
     return () => { if (hideTimerRef.current) clearTimeout(hideTimerRef.current); };

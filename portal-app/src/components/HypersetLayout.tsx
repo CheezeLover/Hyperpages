@@ -119,30 +119,36 @@ export function HypersetLayout({ pagesUrl, isAdmin, userEmail }: HypersetLayoutP
   }, []);
 
   // ── Keyboard navigation between pages ────────────────────────────────────────
-  // Shared handler used by both the direct keydown listener (window has focus)
-  // and the postMessage listener (iframe has focus — relay injected by Pages Service).
+  // pagesRef keeps the latest pages list without being a useCallback dependency,
+  // so navigateByKey (and both listeners below) are created exactly once.
+  const pagesRef = useRef<Page[]>([]);
+  useEffect(() => { pagesRef.current = pages; }, [pages]);
+
   const navigateByKey = useCallback((key: string) => {
+    const ps = pagesRef.current;
     if (key === "ArrowRight" || key === "ArrowDown") {
       setSelectedPage((current) => {
-        if (pages.length === 0) return null;
-        if (!current) return pages[0];
-        const idx = pages.findIndex((p) => p.name === current.name);
-        return idx < pages.length - 1 ? pages[idx + 1] : current;
+        if (ps.length === 0) return null;
+        if (!current) return ps[0];
+        const idx = ps.findIndex((p) => p.name === current.name);
+        return idx < ps.length - 1 ? ps[idx + 1] : current;
       });
     } else if (key === "ArrowLeft" || key === "ArrowUp") {
       setSelectedPage((current) => {
-        if (pages.length === 0) return null;
-        if (!current) return pages[0];
-        const idx = pages.findIndex((p) => p.name === current.name);
-        return idx > 0 ? pages[idx - 1] : current;
+        if (ps.length === 0) return null;
+        if (!current) return ps[0];
+        const idx = ps.findIndex((p) => p.name === current.name);
+        return idx > 0 ? ps[idx - 1] : current;
       });
     }
-  }, [pages]);
+  }, []); // stable — reads pages via ref
+
+  const adminOpenRef = useRef(adminOpen);
+  useEffect(() => { adminOpenRef.current = adminOpen; }, [adminOpen]);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      // Never intercept while the admin modal is open or while typing
-      if (adminOpen) return;
+      if (adminOpenRef.current) return;
       const tag = (e.target as HTMLElement).tagName;
       if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return;
       if ((e.target as HTMLElement).isContentEditable) return;
@@ -153,38 +159,31 @@ export function HypersetLayout({ pagesUrl, isAdmin, userEmail }: HypersetLayoutP
     };
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [navigateByKey, adminOpen]);
+  }, [navigateByKey]);
 
-  // Arrow keys forwarded from inside the iframe via postMessage relay
-  // (injected by the Pages Service into every served HTML page).
+  // Arrow keys relayed from inside the iframe via postMessage
+  // (type "hyperset-keydown" injected by the Pages Service).
   useEffect(() => {
     const handleMessage = (e: MessageEvent) => {
       if (!e.data || e.data.type !== "hyperset-keydown") return;
-      if (adminOpen) return;
+      if (adminOpenRef.current) return;
       navigateByKey(e.data.key as string);
     };
     window.addEventListener("message", handleMessage);
     return () => window.removeEventListener("message", handleMessage);
-  }, [navigateByKey, adminOpen]);
+  }, [navigateByKey]);
 
-  // Focus-sentinel: keep arrow-key page navigation working even after the user
-  // clicks inside an iframe.
-  //
-  // Cross-origin iframes steal keyboard focus when clicked; parent window
-  // keydown listeners stop firing.  "focusin" on the <iframe> element is NOT
-  // reliable across browsers for cross-origin frames.  What IS reliable is
-  // window.blur — it always fires when any child iframe captures focus.
-  //
-  // After blur we wait one tick (setTimeout 0) so document.activeElement has
-  // settled, confirm it is an <iframe>, then redirect focus to an invisible
-  // sentinel div in the parent document.  The sentinel has pointer-events:none
-  // so all mouse events (clicks, scrolling) still reach the iframe normally.
+  // Focus sentinel: window.blur fires when a cross-origin iframe claims keyboard
+  // focus (focusin on the iframe element is not reliable cross-browser).  We wait
+  // one tick then redirect to a hidden sentinel div so the keydown handler above
+  // keeps receiving arrow keys.  pointer-events:none leaves mouse interaction intact.
+  const focusSentinelRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
     const onWindowBlur = () => {
+      if (!document.querySelector("iframe")) return; // no iframes → tab switch or address bar
       setTimeout(() => {
         if (document.activeElement?.tagName === "IFRAME") {
-          (document.getElementById("hyperset-focus-sentinel") as HTMLElement | null)
-            ?.focus({ preventScroll: true });
+          focusSentinelRef.current?.focus({ preventScroll: true });
         }
       }, 0);
     };
@@ -312,7 +311,7 @@ export function HypersetLayout({ pagesUrl, isAdmin, userEmail }: HypersetLayoutP
           Mouse interaction with the iframe is unaffected because the sentinel
           is pointer-events:none and has no visual size.                       */}
       <div
-        id="hyperset-focus-sentinel"
+        ref={focusSentinelRef}
         tabIndex={-1}
         aria-hidden="true"
         style={{ position: "fixed", width: 0, height: 0, opacity: 0, pointerEvents: "none" }}
