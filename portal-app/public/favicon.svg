@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
+  <!-- Orange rounded background -->
+  <rect width="32" height="32" rx="7" fill="#D35400"/>
+
+  <!-- Back page (shadow) -->
+  <rect x="13" y="8" width="12" height="15" rx="2" fill="rgba(0,0,0,0.20)"/>
+
+  <!-- Middle page -->
+  <rect x="10" y="6" width="12" height="15" rx="2" fill="rgba(255,255,255,0.60)"/>
+
+  <!-- Front page -->
+  <rect x="7" y="4" width="12" height="15" rx="2" fill="#FFFFFF"/>
+
+  <!-- Folded corner on front page -->
+  <path d="M16 4 L19 4 L19 7 Z" fill="#E8680A"/>
+
+  <!-- Text lines on front page -->
+  <rect x="9.5" y="9"  width="7" height="1.5" rx="0.75" fill="#D35400" opacity="0.75"/>
+  <rect x="9.5" y="12" width="5.5" height="1.5" rx="0.75" fill="#D35400" opacity="0.75"/>
+  <rect x="9.5" y="15" width="6.5" height="1.5" rx="0.75" fill="#D35400" opacity="0.75"/>
+</svg>

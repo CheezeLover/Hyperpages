@@ -6,9 +6,9 @@ import { readFileSync } from "fs";
 import { join } from "path";
 
 export const metadata: Metadata = {
-  title: "Hyperset",
+  title: "Hyperpages",
   description: "Analytics Portal",
-  icons: { icon: "/logos/hyperset-logo-only.png" },
+  icons: { icon: "/favicon.svg" },
 };
 
 // Read theme at build time for SSR
@@ -119,7 +119,7 @@ export default async function RootLayout({
   return (
     <html lang="en">
       <head>
-        <link rel="icon" href="/logos/hyperset-logo-only.png" />
+        <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
         {themeScript && (
           <script dangerouslySetInnerHTML={{ __html: themeScript }} />
         )}
