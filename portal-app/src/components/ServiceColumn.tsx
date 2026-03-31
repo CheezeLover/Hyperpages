@@ -74,14 +74,53 @@ function ServiceBtn({
   );
 }
 
+const EDGE_TRIGGER_PX = 20;   // px from the right edge that reveals the bar
+const AUTO_HIDE_MS    = 2000; // ms before the bar collapses in fullscreen
+
 export function ServiceColumn({ isPortraitMode, pages, selectedPage, onSelectPage, onExportPdf, isExporting, onOpenAdmin, onDisconnect }: ServiceColumnProps) {
   const [isFullscreen, setIsFullscreen] = React.useState(false);
+  const [collapsed, setCollapsed] = React.useState(false);
+  const hideTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
 
   React.useEffect(() => {
     const onChange = () => setIsFullscreen(!!document.fullscreenElement);
     document.addEventListener("fullscreenchange", onChange);
     return () => document.removeEventListener("fullscreenchange", onChange);
   }, []);
+
+  // Schedule the bar to hide after AUTO_HIDE_MS
+  const scheduleHide = React.useCallback(() => {
+    if (hideTimerRef.current) clearTimeout(hideTimerRef.current);
+    hideTimerRef.current = setTimeout(() => setCollapsed(true), AUTO_HIDE_MS);
+  }, []);
+
+  // Show the bar and restart the hide timer
+  const showBar = React.useCallback(() => {
+    setCollapsed(false);
+    scheduleHide();
+  }, [scheduleHide]);
+
+  // On fullscreen enter/exit: reset collapsed state and timer
+  React.useEffect(() => {
+    if (isFullscreen) {
+      setCollapsed(false);
+      scheduleHide();
+    } else {
+      setCollapsed(false);
+      if (hideTimerRef.current) clearTimeout(hideTimerRef.current);
+    }
+    return () => { if (hideTimerRef.current) clearTimeout(hideTimerRef.current); };
+  }, [isFullscreen, scheduleHide]);
+
+  // Reveal bar when mouse approaches the right edge of the screen
+  React.useEffect(() => {
+    if (!isFullscreen || isPortraitMode) return;
+    const onMouseMove = (e: MouseEvent) => {
+      if (e.clientX >= window.innerWidth - EDGE_TRIGGER_PX) showBar();
+    };
+    document.addEventListener("mousemove", onMouseMove);
+    return () => document.removeEventListener("mousemove", onMouseMove);
+  }, [isFullscreen, isPortraitMode, showBar]);
 
   const toggleFullscreen = () => {
     if (!document.fullscreenElement) {
@@ -91,8 +130,31 @@ export function ServiceColumn({ isPortraitMode, pages, selectedPage, onSelectPag
     }
   };
 
+  // In fullscreen: fixed overlay; collapsed = slide off to the right
+  const fullscreenStyle: React.CSSProperties = isFullscreen && !isPortraitMode ? {
+    position: "fixed",
+    right: 0,
+    top: 0,
+    height: "100%",
+    zIndex: 100,
+    transform: collapsed ? "translateX(100%)" : "translateX(0)",
+    transition: "transform 0.25s ease",
+    boxShadow: collapsed ? "none" : "-4px 0 20px rgba(0,0,0,0.18)",
+  } : {};
+
   return (
     <div
+      onMouseEnter={() => {
+        // Pause auto-hide while the cursor is on the bar
+        if (isFullscreen && !isPortraitMode && hideTimerRef.current) {
+          clearTimeout(hideTimerRef.current);
+          hideTimerRef.current = null;
+        }
+      }}
+      onMouseLeave={() => {
+        // Restart hide timer when the cursor leaves the bar
+        if (isFullscreen && !isPortraitMode) scheduleHide();
+      }}
       style={{
         display: "flex",
         flexDirection: isPortraitMode ? "row" : "column",
@@ -107,6 +169,7 @@ export function ServiceColumn({ isPortraitMode, pages, selectedPage, onSelectPag
         background: "var(--md-surface)",
         zIndex: 20,
         order: 99,
+        ...fullscreenStyle,
       }}
     >
       {/* Page buttons */}
