@@ -211,10 +211,11 @@ async def health_check():
 
 _ARROW_RELAY = (
     "<script>(function(){"
+    # capture=true so we see the event before any element can stopPropagation()
     "window.addEventListener('keydown',function(e){"
     "if(['ArrowLeft','ArrowRight','ArrowUp','ArrowDown'].indexOf(e.key)!==-1){"
     "try{window.parent.postMessage({type:'hyperset-keydown',key:e.key},'*');}catch(err){}"
-    "}});"
+    "}},true);"  # <-- capture phase
     "})();</script>"
 )
 

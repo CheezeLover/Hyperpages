@@ -167,6 +167,22 @@ export function HypersetLayout({ pagesUrl, isAdmin, userEmail }: HypersetLayoutP
     return () => window.removeEventListener("message", handleMessage);
   }, [navigateByKey, adminOpen]);
 
+  // Focus-sentinel fallback: when a cross-origin iframe captures keyboard focus
+  // (detected via focusin on the <iframe> element in the parent document), we
+  // immediately redirect focus to an invisible sentinel div so the parent
+  // window's keydown handler keeps working.  Mouse events are unaffected
+  // (pointer-events:none) so clicks/scrolling inside the iframe still work.
+  useEffect(() => {
+    const onFocusIn = (e: FocusEvent) => {
+      if ((e.target as HTMLElement)?.tagName === "IFRAME") {
+        const sentinel = document.getElementById("hyperset-focus-sentinel") as HTMLDivElement | null;
+        sentinel?.focus({ preventScroll: true });
+      }
+    };
+    document.addEventListener("focusin", onFocusIn);
+    return () => document.removeEventListener("focusin", onFocusIn);
+  }, []);
+
   // ── Track mounted iframes — add page on first selection ─────────────────────
   useEffect(() => {
     if (!selectedPage) return;
@@ -279,6 +295,19 @@ export function HypersetLayout({ pagesUrl, isAdmin, userEmail }: HypersetLayoutP
           onPageFilesChanged={() => setIframeKey((k) => k + 1)}
         />
       )}
+
+      {/* Focus sentinel — invisible, zero-size, pointer-events:none.
+          When a cross-origin iframe steals keyboard focus, the focusin listener
+          above immediately redirects focus here so the parent window's keydown
+          handler (arrow-key page navigation) keeps working.
+          Mouse interaction with the iframe is unaffected because the sentinel
+          is pointer-events:none and has no visual size.                       */}
+      <div
+        id="hyperset-focus-sentinel"
+        tabIndex={-1}
+        aria-hidden="true"
+        style={{ position: "fixed", width: 0, height: 0, opacity: 0, pointerEvents: "none" }}
+      />
     </div>
   );
 }
