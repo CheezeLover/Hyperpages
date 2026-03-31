@@ -20,7 +20,7 @@ from pathlib import Path
 import uvicorn
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse, JSONResponse
+from fastapi.responses import FileResponse, HTMLResponse, JSONResponse
 from watchdog.events import FileSystemEventHandler
 from watchdog.observers import Observer
 
@@ -209,15 +209,36 @@ async def health_check():
     )
 
 
+_ARROW_RELAY = (
+    "<script>(function(){"
+    "window.addEventListener('keydown',function(e){"
+    "if(['ArrowLeft','ArrowRight','ArrowUp','ArrowDown'].indexOf(e.key)!==-1){"
+    "try{window.parent.postMessage({type:'hyperset-keydown',key:e.key},'*');}catch(err){}"
+    "}});"
+    "})();</script>"
+)
+
+
 @app.get("/{page_name}", include_in_schema=False)
 async def serve_page(page_name: str):
-    """Serve the index.html for a registered page."""
+    """Serve the index.html for a registered page.
+
+    A tiny postMessage relay script is injected so that arrow-key presses inside
+    the (cross-origin) iframe are forwarded to the portal for page navigation,
+    even after the iframe has captured keyboard focus.
+    """
     with _registry_lock:
         known = page_name in _registry
     if not known:
         return JSONResponse({"detail": "Page not found"}, status_code=404)
     index = PAGES_DIR / page_name / "index.html"
-    return FileResponse(index, media_type="text/html")
+    html = index.read_text(encoding="utf-8")
+    # Inject before </body> when present, otherwise append
+    if "</body>" in html:
+        html = html.replace("</body>", _ARROW_RELAY + "</body>", 1)
+    else:
+        html += _ARROW_RELAY
+    return HTMLResponse(content=html)
 
 
 if __name__ == "__main__":

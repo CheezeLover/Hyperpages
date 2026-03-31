@@ -119,6 +119,26 @@ export function HypersetLayout({ pagesUrl, isAdmin, userEmail }: HypersetLayoutP
   }, []);
 
   // ── Keyboard navigation between pages ────────────────────────────────────────
+  // Shared handler used by both the direct keydown listener (window has focus)
+  // and the postMessage listener (iframe has focus — relay injected by Pages Service).
+  const navigateByKey = useCallback((key: string) => {
+    if (key === "ArrowRight" || key === "ArrowDown") {
+      setSelectedPage((current) => {
+        if (pages.length === 0) return null;
+        if (!current) return pages[0];
+        const idx = pages.findIndex((p) => p.name === current.name);
+        return idx < pages.length - 1 ? pages[idx + 1] : current;
+      });
+    } else if (key === "ArrowLeft" || key === "ArrowUp") {
+      setSelectedPage((current) => {
+        if (pages.length === 0) return null;
+        if (!current) return pages[0];
+        const idx = pages.findIndex((p) => p.name === current.name);
+        return idx > 0 ? pages[idx - 1] : current;
+      });
+    }
+  }, [pages]);
+
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       // Never intercept while the admin modal is open or while typing
@@ -126,28 +146,26 @@ export function HypersetLayout({ pagesUrl, isAdmin, userEmail }: HypersetLayoutP
       const tag = (e.target as HTMLElement).tagName;
       if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return;
       if ((e.target as HTMLElement).isContentEditable) return;
-
-      if (e.key === "ArrowRight" || e.key === "ArrowDown") {
+      if (e.key === "ArrowRight" || e.key === "ArrowDown" || e.key === "ArrowLeft" || e.key === "ArrowUp") {
         e.preventDefault();
-        setSelectedPage((current) => {
-          if (pages.length === 0) return null;
-          if (!current) return pages[0];
-          const idx = pages.findIndex((p) => p.name === current.name);
-          return idx < pages.length - 1 ? pages[idx + 1] : current;
-        });
-      } else if (e.key === "ArrowLeft" || e.key === "ArrowUp") {
-        e.preventDefault();
-        setSelectedPage((current) => {
-          if (pages.length === 0) return null;
-          if (!current) return pages[0];
-          const idx = pages.findIndex((p) => p.name === current.name);
-          return idx > 0 ? pages[idx - 1] : current;
-        });
+        navigateByKey(e.key);
       }
     };
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [pages, adminOpen]);
+  }, [navigateByKey, adminOpen]);
+
+  // Arrow keys forwarded from inside the iframe via postMessage relay
+  // (injected by the Pages Service into every served HTML page).
+  useEffect(() => {
+    const handleMessage = (e: MessageEvent) => {
+      if (!e.data || e.data.type !== "hyperset-keydown") return;
+      if (adminOpen) return;
+      navigateByKey(e.data.key as string);
+    };
+    window.addEventListener("message", handleMessage);
+    return () => window.removeEventListener("message", handleMessage);
+  }, [navigateByKey, adminOpen]);
 
   // ── Track mounted iframes — add page on first selection ─────────────────────
   useEffect(() => {

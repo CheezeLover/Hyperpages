@@ -3,7 +3,8 @@
     "allow": [
       "Bash(npm run:*)",
       "Bash(node_modules/.bin/next build:*)",
-      "Bash(node -e \":*)"
+      "Bash(node -e \":*)",
+      "Bash(find '/c/Users/VincentCROISE/OneDrive - Ginesis Finance/Documents/GitHub/Hyperset/Hyperset/Hyperpages/Pages-Service' -type f -name *.ts -o -name *.js -o -name *.py)"
     ]
   }
 }
