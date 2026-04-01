@@ -29,6 +29,9 @@
   --radius-m: 12px;
   --ease-standard: cubic-bezier(.2, 0, 0, 1);
   --ease-decel:    cubic-bezier(0, 0, 0, 1);
+
+  /* Zone widths */
+  --admin-panel-width: 400px;
 }
 
 /* ── Dark theme (automatic) ─────────────────────────────── */
