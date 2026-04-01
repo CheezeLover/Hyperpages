@@ -44,6 +44,10 @@ export function HypersetLayout({ pagesUrl, isAdmin, userEmail }: HypersetLayoutP
   // Once mounted, keep content alive for smooth close animation
   const [adminMounted, setAdminMounted] = useState(false);
   const [isPortraitMode, setIsPortraitMode] = useState(false);
+  const [adminPanelWidth, setAdminPanelWidth] = useState(400);
+  const isResizingAdmin = useRef(false);
+  const resizeStartX = useRef(0);
+  const resizeStartWidth = useRef(0);
   const [isExporting, setIsExporting] = useState(false);
   // Bumped whenever a page's HTML file is replaced — forces the iframe to reload
   const [iframeKey, setIframeKey] = useState(0);
@@ -203,6 +207,22 @@ export function HypersetLayout({ pagesUrl, isAdmin, userEmail }: HypersetLayoutP
     });
   }, [selectedPage]);
 
+  // ── Admin panel drag-to-resize ───────────────────────────────────────────────
+  useEffect(() => {
+    const onMouseMove = (e: MouseEvent) => {
+      if (!isResizingAdmin.current) return;
+      const delta = resizeStartX.current - e.clientX;
+      setAdminPanelWidth(Math.max(260, Math.min(700, resizeStartWidth.current + delta)));
+    };
+    const onMouseUp = () => { isResizingAdmin.current = false; };
+    window.addEventListener("mousemove", onMouseMove);
+    window.addEventListener("mouseup", onMouseUp);
+    return () => {
+      window.removeEventListener("mousemove", onMouseMove);
+      window.removeEventListener("mouseup", onMouseUp);
+    };
+  }, []);
+
   const handleSelectProject = (id: string) => {
     setSelectedProjectId(id);
   };
@@ -300,14 +320,38 @@ export function HypersetLayout({ pagesUrl, isAdmin, userEmail }: HypersetLayoutP
         style={{
           ...(isPortraitMode
             ? { height: adminOpen ? "55vh" : 0, width: "100%", transition: "height 0.25s ease", borderTop: adminOpen ? "1px solid var(--md-outline-var)" : "none" }
-            : { width: adminOpen ? "var(--admin-panel-width)" : 0, height: "100%", transition: "width 0.25s ease", borderLeft: adminOpen ? "1px solid var(--md-outline-var)" : "none" }
+            : { width: adminOpen ? adminPanelWidth : 0, height: "100%", transition: isResizingAdmin.current ? "none" : "width 0.25s ease", borderLeft: adminOpen ? "1px solid var(--md-outline-var)" : "none" }
           ),
           overflow: "hidden",
           flexShrink: 0,
           order: 98,
+          position: "relative",
         }}
       >
-        <div style={isPortraitMode ? { height: "55vh", width: "100%" } : { width: "var(--admin-panel-width)", height: "100%" }}>
+        {/* Drag handle — left edge, landscape only */}
+        {!isPortraitMode && adminOpen && (
+          <div
+            onMouseDown={(e) => {
+              isResizingAdmin.current = true;
+              resizeStartX.current = e.clientX;
+              resizeStartWidth.current = adminPanelWidth;
+              e.preventDefault();
+            }}
+            style={{
+              position: "absolute",
+              left: 0,
+              top: 0,
+              bottom: 0,
+              width: 5,
+              cursor: "col-resize",
+              zIndex: 10,
+              background: "transparent",
+            }}
+            onMouseEnter={(e) => { (e.currentTarget as HTMLDivElement).style.background = "var(--md-primary)"; (e.currentTarget as HTMLDivElement).style.opacity = "0.25"; }}
+            onMouseLeave={(e) => { (e.currentTarget as HTMLDivElement).style.background = "transparent"; (e.currentTarget as HTMLDivElement).style.opacity = "1"; }}
+          />
+        )}
+        <div style={isPortraitMode ? { height: "55vh", width: "100%" } : { width: adminPanelWidth, height: "100%" }}>
           {adminMounted && (
             <AdminModal
               onClose={() => { setAdminOpen(false); loadData(); }}
