@@ -300,14 +300,14 @@ export function HypersetLayout({ pagesUrl, isAdmin, userEmail }: HypersetLayoutP
         style={{
           ...(isPortraitMode
             ? { height: adminOpen ? "55vh" : 0, width: "100%", transition: "height 0.25s ease", borderTop: adminOpen ? "1px solid var(--md-outline-var)" : "none" }
-            : { width: adminOpen ? "var(--admin-panel-width)" : 0, height: "100%", transition: "width 0.25s ease", borderLeft: adminOpen ? "1px solid var(--md-outline-var)" : "none" }
+            : { width: adminOpen ? 400 : 0, height: "100%", transition: "width 0.25s ease", borderLeft: adminOpen ? "1px solid var(--md-outline-var)" : "none" }
           ),
           overflow: "hidden",
           flexShrink: 0,
           order: 98,
         }}
       >
-        <div style={isPortraitMode ? { height: "55vh", width: "100%" } : { width: "var(--admin-panel-width)", height: "100%" }}>
+        <div style={isPortraitMode ? { height: "55vh", width: "100%" } : { width: 400, height: "100%" }}>
           {adminMounted && (
             <AdminModal
               onClose={() => { setAdminOpen(false); loadData(); }}
