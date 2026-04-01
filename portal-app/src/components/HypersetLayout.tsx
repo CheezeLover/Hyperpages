@@ -290,7 +290,8 @@ export function HypersetLayout({ pagesUrl, isAdmin, userEmail }: HypersetLayoutP
         onSelectPage={(page) => setSelectedPage(page)}
         onExportPdf={handleExportPdf}
         isExporting={isExporting}
-        onOpenAdmin={() => setAdminOpen(true)}
+        adminOpen={adminOpen}
+        onOpenAdmin={() => setAdminOpen((v) => !v)}
         onDisconnect={() => { window.location.href = "/api/auth/logout"; }}
       />
 
