@@ -41,6 +41,8 @@ export function HypersetLayout({ pagesUrl, isAdmin, userEmail }: HypersetLayoutP
   const [selectedPage, setSelectedPage] = useState<Page | null>(null);
   const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
   const [adminOpen, setAdminOpen] = useState(false);
+  // Once mounted, keep content alive for smooth close animation
+  const [adminMounted, setAdminMounted] = useState(false);
   const [isPortraitMode, setIsPortraitMode] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
   // Bumped whenever a page's HTML file is replaced — forces the iframe to reload
@@ -145,6 +147,7 @@ export function HypersetLayout({ pagesUrl, isAdmin, userEmail }: HypersetLayoutP
 
   const adminOpenRef = useRef(adminOpen);
   useEffect(() => { adminOpenRef.current = adminOpen; }, [adminOpen]);
+  useEffect(() => { if (adminOpen) setAdminMounted(true); }, [adminOpen]);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -291,18 +294,32 @@ export function HypersetLayout({ pagesUrl, isAdmin, userEmail }: HypersetLayoutP
         onDisconnect={() => { window.location.href = "/api/auth/logout"; }}
       />
 
-      {/* Admin modal */}
-      {adminOpen && (
-        <AdminModal
-          onClose={() => { setAdminOpen(false); loadData(); }}
-          userEmail={userEmail}
-          isAdmin={isAdmin}
-          selectedProjectId={selectedProjectId}
-          onSelectProject={handleSelectProject}
-          projects={projects}
-          onPageFilesChanged={() => setIframeKey((k) => k + 1)}
-        />
-      )}
+      {/* Settings panel — slides in/out inline, no overlay */}
+      <div
+        style={{
+          ...(isPortraitMode
+            ? { height: adminOpen ? "55vh" : 0, width: "100%", transition: "height 0.25s ease", borderTop: adminOpen ? "1px solid var(--md-outline-var)" : "none" }
+            : { width: adminOpen ? 400 : 0, height: "100%", transition: "width 0.25s ease", borderLeft: adminOpen ? "1px solid var(--md-outline-var)" : "none" }
+          ),
+          overflow: "hidden",
+          flexShrink: 0,
+          order: 98,
+        }}
+      >
+        <div style={isPortraitMode ? { height: "55vh", width: "100%" } : { width: 400, height: "100%" }}>
+          {adminMounted && (
+            <AdminModal
+              onClose={() => { setAdminOpen(false); loadData(); }}
+              userEmail={userEmail}
+              isAdmin={isAdmin}
+              selectedProjectId={selectedProjectId}
+              onSelectProject={handleSelectProject}
+              projects={projects}
+              onPageFilesChanged={() => setIframeKey((k) => k + 1)}
+            />
+          )}
+        </div>
+      </div>
 
       {/* Focus sentinel — invisible, zero-size, pointer-events:none.
           When a cross-origin iframe steals keyboard focus, the focusin listener

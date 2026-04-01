@@ -682,62 +682,57 @@ function ProjectsTab({ userEmail, isAdmin, onPageFilesChanged }: { userEmail: st
   );
 }
 
-// ── Main Admin Modal ───────────────────────────────────────────────────────────
+// ── Main Admin Panel ───────────────────────────────────────────────────────────
 export function AdminModal({ onClose, userEmail, isAdmin, selectedProjectId, onSelectProject, projects, onPageFilesChanged }: AdminModalProps) {
 
   return (
     <>
       <style>{spinKeyframes}</style>
-      <div
-        style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", zIndex: 1000, display: "flex", alignItems: "center", justifyContent: "center", backdropFilter: "blur(4px)" }}
-        onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
-      >
-        <div style={{ background: "var(--md-surface-cont)", borderRadius: 20, padding: 0, minWidth: 380, maxWidth: 660, width: "94%", maxHeight: "85vh", overflow: "hidden", boxShadow: "0 24px 48px rgba(0,0,0,0.2), 0 0 0 1px rgba(255,255,255,0.05)", display: "flex", flexDirection: "column" }}>
+      <div style={{ display: "flex", flexDirection: "column", height: "100%", background: "var(--md-surface-cont)", overflow: "hidden" }}>
 
-          {/* Header */}
-          <div style={{ display: "flex", alignItems: "center", padding: "20px 24px", gap: 14, borderBottom: "1px solid var(--md-outline-var)", background: "var(--md-surface-cont)", borderRadius: "20px 20px 0 0" }}>
-            <div style={{ width: 36, height: 36, borderRadius: 10, background: "var(--md-primary)", display: "flex", alignItems: "center", justifyContent: "center" }}>
-              <svg viewBox="0 0 24 24" width={20} height={20} fill="white"><path d="M4 6h16v2H4zm0 5h16v2H4zm0 5h16v2H4z" /></svg>
-            </div>
-            <div>
-              <div style={{ fontSize: 16, fontWeight: 700, color: "var(--md-on-surface)" }}>Admin</div>
-              <div style={{ fontSize: 12, color: "var(--md-on-surface)", opacity: 0.5 }}>Manage projects and pages</div>
-            </div>
-            <button onClick={onClose} style={{ marginLeft: "auto", background: "none", border: "none", cursor: "pointer", color: "var(--md-on-surface)", opacity: 0.5, fontSize: 20, lineHeight: 1, padding: "4px 8px", borderRadius: 8 }}>×</button>
+        {/* Header */}
+        <div style={{ display: "flex", alignItems: "center", padding: "20px 24px", gap: 14, borderBottom: "1px solid var(--md-outline-var)", background: "var(--md-surface-cont)", flexShrink: 0 }}>
+          <div style={{ width: 36, height: 36, borderRadius: 10, background: "var(--md-primary)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+            <svg viewBox="0 0 24 24" width={20} height={20} fill="white"><path d="M4 6h16v2H4zm0 5h16v2H4zm0 5h16v2H4z" /></svg>
           </div>
-
-          {/* Active project selector */}
-          {projects.length > 0 && (
-            <div style={{ padding: "10px 24px", background: "var(--md-surface-cont)", display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", borderBottom: "1px solid var(--md-outline-var)" }}>
-              <span style={{ fontSize: 11, fontWeight: 600, opacity: 0.4, color: "var(--md-on-surface)", textTransform: "uppercase", letterSpacing: "0.07em", flexShrink: 0 }}>Active project</span>
-              {projects.map((p) => {
-                const isActive = p.id === selectedProjectId;
-                return (
-                  <button
-                    key={p.id}
-                    onClick={() => onSelectProject(p.id)}
-                    title={p.name}
-                    style={{
-                      display: "flex", alignItems: "center", gap: 6,
-                      padding: "4px 10px", borderRadius: 20, fontSize: 12, fontWeight: isActive ? 600 : 400,
-                      border: isActive ? "2px solid var(--md-primary)" : "1px solid var(--md-outline-var)",
-                      background: isActive ? "var(--md-primary-cont)" : "transparent",
-                      color: isActive ? "var(--md-primary)" : "var(--md-on-surface)",
-                      cursor: "pointer", transition: "all 0.15s",
-                    }}
-                  >
-                    <span style={{ fontSize: 13 }}>{p.icon || p.name.charAt(0).toUpperCase()}</span>
-                    {p.name}
-                  </button>
-                );
-              })}
-            </div>
-          )}
-
-          {/* Body */}
-          <div style={{ flex: 1, overflowY: "auto", padding: "20px 24px" }}>
-            <ProjectsTab userEmail={userEmail} isAdmin={isAdmin} onPageFilesChanged={onPageFilesChanged} />
+          <div>
+            <div style={{ fontSize: 16, fontWeight: 700, color: "var(--md-on-surface)" }}>Admin</div>
+            <div style={{ fontSize: 12, color: "var(--md-on-surface)", opacity: 0.5 }}>Manage projects and pages</div>
           </div>
+          <button onClick={onClose} style={{ marginLeft: "auto", background: "none", border: "none", cursor: "pointer", color: "var(--md-on-surface)", opacity: 0.5, fontSize: 20, lineHeight: 1, padding: "4px 8px", borderRadius: 8 }}>×</button>
+        </div>
+
+        {/* Active project selector */}
+        {projects.length > 0 && (
+          <div style={{ padding: "10px 24px", background: "var(--md-surface-cont)", display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", borderBottom: "1px solid var(--md-outline-var)", flexShrink: 0 }}>
+            <span style={{ fontSize: 11, fontWeight: 600, opacity: 0.4, color: "var(--md-on-surface)", textTransform: "uppercase", letterSpacing: "0.07em", flexShrink: 0 }}>Active project</span>
+            {projects.map((p) => {
+              const isActive = p.id === selectedProjectId;
+              return (
+                <button
+                  key={p.id}
+                  onClick={() => onSelectProject(p.id)}
+                  title={p.name}
+                  style={{
+                    display: "flex", alignItems: "center", gap: 6,
+                    padding: "4px 10px", borderRadius: 20, fontSize: 12, fontWeight: isActive ? 600 : 400,
+                    border: isActive ? "2px solid var(--md-primary)" : "1px solid var(--md-outline-var)",
+                    background: isActive ? "var(--md-primary-cont)" : "transparent",
+                    color: isActive ? "var(--md-primary)" : "var(--md-on-surface)",
+                    cursor: "pointer", transition: "all 0.15s",
+                  }}
+                >
+                  <span style={{ fontSize: 13 }}>{p.icon || p.name.charAt(0).toUpperCase()}</span>
+                  {p.name}
+                </button>
+              );
+            })}
+          </div>
+        )}
+
+        {/* Body */}
+        <div style={{ flex: 1, overflowY: "auto", padding: "20px 24px" }}>
+          <ProjectsTab userEmail={userEmail} isAdmin={isAdmin} onPageFilesChanged={onPageFilesChanged} />
         </div>
       </div>
     </>
