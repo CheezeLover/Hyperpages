@@ -39,7 +39,6 @@ export async function GET(
 
   // 3. Issue a Caddy-compatible JWT and set it as the access_token cookie
   const authCryptoKey = process.env.AUTH_CRYPTO_KEY;
-  const domain = (process.env.HYPERSET_DOMAIN || "").trim() || "hyperset.internal";
 
   if (!authCryptoKey) {
     console.error("[join] AUTH_CRYPTO_KEY is not set — cannot issue guest JWT");
