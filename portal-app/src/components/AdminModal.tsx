@@ -581,6 +581,7 @@ function ProjectsTab({ userEmail, isAdmin, onPageFilesChanged }: { userEmail: st
               <button onClick={handleCreateProject} disabled={creating} style={{ ...primaryBtnStyle, opacity: creating ? 0.6 : 1, padding: "8px 20px" }}>{creating ? "Creating..." : "Create"}</button>
               <button onClick={() => { setShowCreate(false); setError(""); }} style={ghostBtnStyle}>Cancel</button>
             </div>
+          </div>
         </div>
       )}
 
