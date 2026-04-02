@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useRef } from "react";
 
 const spinKeyframes = `
   @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
@@ -289,8 +289,8 @@ function ProjectsTab({ userEmail, isAdmin, onPageFilesChanged }: { userEmail: st
   const [codes, setCodes] = useState<Record<string, CodeRecord[]>>({}); // keyed by projectId
   const [generatingCode, setGeneratingCode] = useState<string | null>(null); // projectId
   const [newCode, setNewCode] = useState<{ projectId: string; code: string } | null>(null);
-  const [codeCopied, setCodeCopied] = useState(false);
-  const [urlCopied, setUrlCopied] = useState(false);
+  const [copiedType, setCopiedType] = useState<"code" | "url" | null>(null);
+  const copyTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [deletingCode, setDeletingCode] = useState<string | null>(null);
 
   // Page state
@@ -356,7 +356,7 @@ function ProjectsTab({ userEmail, isAdmin, onPageFilesChanged }: { userEmail: st
     setEditName(p.name); setEditIcon(p.icon || ""); setEditIconColor(p.iconColor || "");
     setEditEmails(p.allowedEmails.filter((e) => e !== p.createdBy).join(", "));
     setEditReadOnlyEmails(p.readOnlyEmails.join(", "));
-    setNewCode(null); setCodeCopied(false); setUrlCopied(false);
+    setNewCode(null); setCopiedType(null);
     // Load existing codes for this project
     fetch(`/api/admin/codes?projectId=${p.id}`, { credentials: "include" })
       .then((r) => r.ok ? r.json() : { codes: [] })
@@ -365,7 +365,7 @@ function ProjectsTab({ userEmail, isAdmin, onPageFilesChanged }: { userEmail: st
   };
 
   const handleGenerateCode = async (projectId: string) => {
-    setGeneratingCode(projectId); setNewCode(null); setCodeCopied(false);
+    setGeneratingCode(projectId); setNewCode(null); setCopiedType(null);
     try {
       const res = await fetch("/api/admin/codes", {
         method: "POST",
@@ -404,12 +404,15 @@ function ProjectsTab({ userEmail, isAdmin, onPageFilesChanged }: { userEmail: st
     }
   };
 
-  const handleCopyCode = (code: string) => {
-    navigator.clipboard.writeText(code).then(() => {
-      setCodeCopied(true);
-      setTimeout(() => setCodeCopied(false), 2000);
+  const handleCopy = (text: string, type: "code" | "url") => {
+    navigator.clipboard.writeText(text).then(() => {
+      if (copyTimeoutRef.current) clearTimeout(copyTimeoutRef.current);
+      setCopiedType(type);
+      copyTimeoutRef.current = setTimeout(() => setCopiedType(null), 2000);
     });
   };
+
+  useEffect(() => () => { if (copyTimeoutRef.current) clearTimeout(copyTimeoutRef.current); }, []);
 
   const handleSaveProject = async (id: string) => {
     setSavingProject(true); setError("");
@@ -658,27 +661,21 @@ function ProjectsTab({ userEmail, isAdmin, onPageFilesChanged }: { userEmail: st
                               {newCode.code}
                             </span>
                             <button
-                              onClick={() => handleCopyCode(newCode.code)}
+                              onClick={() => handleCopy(newCode.code, "code")}
                               style={{ ...ghostBtnStyle, padding: "4px 10px", fontSize: 11, flexShrink: 0 }}
                             >
-                              {codeCopied ? "✓ Copied" : "Copy"}
+                              {copiedType === "code" ? "✓ Copied" : "Copy"}
                             </button>
                           </div>
                           <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 6 }}>
                             <span style={{ fontSize: 10, opacity: 0.5, color: "var(--md-on-surface)", flex: 1, wordBreak: "break-all" }}>
-                              {typeof window !== "undefined" ? window.location.origin : ""}/join/{newCode.code}
+                              {window.location.origin}/join/{newCode.code}
                             </span>
                             <button
-                              onClick={() => {
-                                const url = `${window.location.origin}/join/${newCode.code}`;
-                                navigator.clipboard.writeText(url).then(() => {
-                                  setUrlCopied(true);
-                                  setTimeout(() => setUrlCopied(false), 2000);
-                                });
-                              }}
+                              onClick={() => handleCopy(`${window.location.origin}/join/${newCode.code}`, "url")}
                               style={{ ...ghostBtnStyle, padding: "4px 10px", fontSize: 11, flexShrink: 0 }}
                             >
-                              {urlCopied ? "✓ Copied" : "Copy URL"}
+                              {copiedType === "url" ? "✓ Copied" : "Copy URL"}
                             </button>
                           </div>
                         </div>
