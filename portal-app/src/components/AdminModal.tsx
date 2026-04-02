@@ -577,12 +577,10 @@ function ProjectsTab({ userEmail, isAdmin, onPageFilesChanged }: { userEmail: st
               <textarea value={newEmails} onChange={(e) => setNewEmails(e.target.value)} placeholder="alice@example.com, bob@example.com" rows={2} style={{ ...inputStyle, resize: "vertical" }} />
               <p style={{ fontSize: 11, opacity: 0.5, color: "var(--md-on-surface)", margin: "4px 0 0" }}>Your email is always included. These users can manage presentations.</p>
             </div>
-            <div>
             <div style={{ display: "flex", gap: 8 }}>
               <button onClick={handleCreateProject} disabled={creating} style={{ ...primaryBtnStyle, opacity: creating ? 0.6 : 1, padding: "8px 20px" }}>{creating ? "Creating..." : "Create"}</button>
               <button onClick={() => { setShowCreate(false); setError(""); }} style={ghostBtnStyle}>Cancel</button>
             </div>
-          </div>
         </div>
       )}
 
