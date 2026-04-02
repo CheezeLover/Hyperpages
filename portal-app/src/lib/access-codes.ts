@@ -139,7 +139,8 @@ export function issueGuestJWT(params: {
   authCryptoKey: string;
 }): string {
   const { codeId, projectId, expiresAt, authCryptoKey } = params;
-  const keyBytes = Buffer.from(authCryptoKey, "hex");
+  // caddy-security signs with []byte(keyString) — raw UTF-8 bytes of the hex string,
+  // NOT the hex-decoded binary. Pass the string directly so Node uses the same bytes.
   const now = Math.floor(Date.now() / 1000);
 
   const header = base64url(Buffer.from(JSON.stringify({ alg: "HS512", typ: "JWT" })));
@@ -161,6 +162,6 @@ export function issueGuestJWT(params: {
   );
 
   const sigInput = `${header}.${payload}`;
-  const sig = base64url(createHmac("sha512", keyBytes).update(sigInput).digest());
+  const sig = base64url(createHmac("sha512", authCryptoKey).update(sigInput).digest());
   return `${sigInput}.${sig}`;
 }
