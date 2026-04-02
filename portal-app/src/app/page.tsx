@@ -16,7 +16,10 @@ export default async function Home() {
     try {
       const projects = await getAllProjects();
       canAccessAdmin = projects.some(
-        (p) => p.createdBy === user.email || p.allowedEmails.includes(user.email),
+        (p) =>
+          p.createdBy === user.email ||
+          p.allowedEmails.includes(user.email),
+        // Guest users (guestProjectIds) intentionally cannot access admin
       );
     } catch {
       // DB unavailable at build/boot time — fail open so the admin panel stays accessible

@@ -284,6 +284,14 @@ function ProjectsTab({ userEmail, isAdmin, onPageFilesChanged }: { userEmail: st
   const [deletingProject, setDeletingProject] = useState<string | null>(null);
   const [deletingProjectLoading, setDeletingProjectLoading] = useState(false);
 
+  // Guest access code state
+  type CodeRecord = { id: string; createdBy: string; createdAt: string; expiresAt: string };
+  const [codes, setCodes] = useState<Record<string, CodeRecord[]>>({}); // keyed by projectId
+  const [generatingCode, setGeneratingCode] = useState<string | null>(null); // projectId
+  const [newCode, setNewCode] = useState<{ projectId: string; code: string } | null>(null);
+  const [codeCopied, setCodeCopied] = useState(false);
+  const [deletingCode, setDeletingCode] = useState<string | null>(null);
+
   // Page state
   const [editModalPage, setEditModalPage] = useState<PageInfo | null>(null);
   const [uploadForProject, setUploadForProject] = useState<string | null>(null);
@@ -347,6 +355,59 @@ function ProjectsTab({ userEmail, isAdmin, onPageFilesChanged }: { userEmail: st
     setEditName(p.name); setEditIcon(p.icon || ""); setEditIconColor(p.iconColor || "");
     setEditEmails(p.allowedEmails.filter((e) => e !== p.createdBy).join(", "));
     setEditReadOnlyEmails(p.readOnlyEmails.join(", "));
+    setNewCode(null); setCodeCopied(false);
+    // Load existing codes for this project
+    fetch(`/api/admin/codes?projectId=${p.id}`, { credentials: "include" })
+      .then((r) => r.ok ? r.json() : { codes: [] })
+      .then((data: { codes: CodeRecord[] }) => setCodes((prev) => ({ ...prev, [p.id]: data.codes })))
+      .catch(() => {});
+  };
+
+  const handleGenerateCode = async (projectId: string) => {
+    setGeneratingCode(projectId); setNewCode(null); setCodeCopied(false);
+    try {
+      const res = await fetch("/api/admin/codes", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ projectId }),
+      });
+      if (!res.ok) throw new Error("Failed");
+      const data = await res.json() as { code: string; id: string; createdAt: string; expiresAt: string };
+      setNewCode({ projectId, code: data.code });
+      setCodes((prev) => ({
+        ...prev,
+        [projectId]: [{ id: data.id, createdBy: userEmail, createdAt: data.createdAt, expiresAt: data.expiresAt }, ...(prev[projectId] ?? [])],
+      }));
+    } catch {
+      setError("Failed to generate code");
+    } finally {
+      setGeneratingCode(null);
+    }
+  };
+
+  const handleDeleteCode = async (codeId: string, projectId: string) => {
+    setDeletingCode(codeId);
+    try {
+      const res = await fetch("/api/admin/codes", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: codeId }),
+      });
+      if (!res.ok) throw new Error("Failed");
+      setCodes((prev) => ({ ...prev, [projectId]: (prev[projectId] ?? []).filter((c) => c.id !== codeId) }));
+      if (newCode?.projectId === projectId) setNewCode(null);
+    } catch {
+      setError("Failed to revoke code");
+    } finally {
+      setDeletingCode(null);
+    }
+  };
+
+  const handleCopyCode = (code: string) => {
+    navigator.clipboard.writeText(code).then(() => {
+      setCodeCopied(true);
+      setTimeout(() => setCodeCopied(false), 2000);
+    });
   };
 
   const handleSaveProject = async (id: string) => {
@@ -571,6 +632,80 @@ function ProjectsTab({ userEmail, isAdmin, onPageFilesChanged }: { userEmail: st
                       <label style={{ fontSize: 11, fontWeight: 600, color: "var(--md-on-surface)", opacity: 0.6, marginBottom: 4, display: "block" }}>Read-only access</label>
                       <textarea value={editReadOnlyEmails} onChange={(e) => setEditReadOnlyEmails(e.target.value)} placeholder="viewer@ex.com, guest@ex.com" rows={2} style={{ ...inputStyle, resize: "vertical" }} />
                     </div>
+
+                    {/* ── Guest Access Codes ──────────────────────────────── */}
+                    <div style={{ borderTop: "1px solid var(--md-outline-var)", paddingTop: 12 }}>
+                      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>
+                        <label style={{ fontSize: 11, fontWeight: 600, color: "var(--md-on-surface)", opacity: 0.6 }}>Guest access codes (read-only, 30 days)</label>
+                        <button
+                          onClick={() => handleGenerateCode(project.id)}
+                          disabled={generatingCode === project.id}
+                          style={{ ...primaryBtnStyle, padding: "4px 12px", fontSize: 11, opacity: generatingCode === project.id ? 0.6 : 1 }}
+                        >
+                          {generatingCode === project.id ? "Generating…" : "+ Generate code"}
+                        </button>
+                      </div>
+
+                      {/* Newly generated code — shown once */}
+                      {newCode?.projectId === project.id && (
+                        <div style={{ background: "rgba(var(--md-primary-rgb,103,80,164),0.08)", border: "1px solid var(--md-primary,#6750a4)", borderRadius: 10, padding: "10px 12px", marginBottom: 10 }}>
+                          <div style={{ fontSize: 11, color: "var(--md-primary,#6750a4)", fontWeight: 600, marginBottom: 6 }}>
+                            ✓ New code — copy it now, it will not be shown again
+                          </div>
+                          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                            <span style={{ fontFamily: "monospace", fontSize: 22, fontWeight: 700, letterSpacing: "0.25em", color: "var(--md-on-surface)", flex: 1 }}>
+                              {newCode.code}
+                            </span>
+                            <button
+                              onClick={() => handleCopyCode(newCode.code)}
+                              style={{ ...ghostBtnStyle, padding: "4px 10px", fontSize: 11, flexShrink: 0 }}
+                            >
+                              {codeCopied ? "✓ Copied" : "Copy"}
+                            </button>
+                          </div>
+                          <div style={{ fontSize: 10, opacity: 0.5, color: "var(--md-on-surface)", marginTop: 6 }}>
+                            Share this URL: <strong>{typeof window !== "undefined" ? window.location.origin : ""}/join/{newCode.code}</strong>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Existing codes list */}
+                      {(codes[project.id] ?? []).length > 0 ? (
+                        <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                          {(codes[project.id] ?? []).map((c) => {
+                            const expires = new Date(c.expiresAt);
+                            const isExpired = expires < new Date();
+                            const daysLeft = Math.ceil((expires.getTime() - Date.now()) / 86400000);
+                            return (
+                              <div key={c.id} style={{ display: "flex", alignItems: "center", gap: 8, padding: "6px 8px", borderRadius: 8, background: "var(--md-surface-cont)", border: "1px solid var(--md-outline-var)" }}>
+                                <div style={{ flex: 1, minWidth: 0 }}>
+                                  <div style={{ fontSize: 11, color: "var(--md-on-surface)", opacity: 0.7 }}>
+                                    Created by {c.createdBy.split("@")[0]}
+                                    {" · "}
+                                    {new Date(c.createdAt).toLocaleDateString()}
+                                  </div>
+                                  <div style={{ fontSize: 10, color: isExpired ? "#ef5350" : "var(--md-on-surface)", opacity: isExpired ? 1 : 0.5, marginTop: 1 }}>
+                                    {isExpired ? "Expired" : `Expires in ${daysLeft} day${daysLeft !== 1 ? "s" : ""}`}
+                                  </div>
+                                </div>
+                                <button
+                                  onClick={() => handleDeleteCode(c.id, project.id)}
+                                  disabled={deletingCode === c.id}
+                                  style={{ ...dangerBtnStyle, padding: "3px 8px", fontSize: 10, opacity: deletingCode === c.id ? 0.6 : 1, flexShrink: 0 }}
+                                >
+                                  {deletingCode === c.id ? "…" : "Revoke"}
+                                </button>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      ) : (
+                        <div style={{ fontSize: 11, color: "var(--md-on-surface)", opacity: 0.4, textAlign: "center", padding: "8px 0" }}>
+                          No active codes
+                        </div>
+                      )}
+                    </div>
+
                     <div style={{ display: "flex", gap: 8 }}>
                       <button onClick={() => handleSaveProject(project.id)} disabled={savingProject} style={{ ...primaryBtnStyle, padding: "6px 16px", fontSize: 12, opacity: savingProject ? 0.6 : 1 }}>{savingProject ? "Saving…" : "Save"}</button>
                       <button onClick={() => setEditingProject(null)} disabled={savingProject} style={{ ...ghostBtnStyle, opacity: savingProject ? 0.5 : 1 }}>Cancel</button>

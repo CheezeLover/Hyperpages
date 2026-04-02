@@ -35,7 +35,7 @@ export async function GET(request: NextRequest) {
   }
 
   const all = await getAllProjects();
-  const visible = all.filter((p) => canUserViewProject(p, user.email, user.isAdmin));
+  const visible = all.filter((p) => canUserViewProject(p, user.email, user.isAdmin, user.guestProjectIds));
   return NextResponse.json({ projects: visible });
 }
 

@@ -5,6 +5,8 @@ export interface HypersetUser {
   email: string;
   roles: string[];
   isAdmin: boolean;
+  /** Project IDs this user may view as a read-only guest (from invite codes). */
+  guestProjectIds: string[];
 }
 
 /**
@@ -57,6 +59,13 @@ function parseRoles(rolesHeader: string | null): {
   return { roles, isAdmin };
 }
 
+function parseGuestProjectIds(roles: string[]): string[] {
+  return roles
+    .filter((r) => r.startsWith("hyperset/project/"))
+    .map((r) => r.slice("hyperset/project/".length))
+    .filter(Boolean);
+}
+
 export async function getCurrentUser(): Promise<HypersetUser> {
   const headersList = await headers();
   const id = headersList.get("x-token-user-id") ?? "anonymous";
@@ -64,7 +73,8 @@ export async function getCurrentUser(): Promise<HypersetUser> {
   const { roles, isAdmin } = parseRoles(
     headersList.get("x-token-user-roles")
   );
-  return { id, email, roles, isAdmin };
+  const guestProjectIds = parseGuestProjectIds(roles);
+  return { id, email, roles, isAdmin, guestProjectIds };
 }
 
 export function getUserFromRequest(request: Request): HypersetUser {
@@ -73,5 +83,6 @@ export function getUserFromRequest(request: Request): HypersetUser {
   const { roles, isAdmin } = parseRoles(
     request.headers.get("x-token-user-roles")
   );
-  return { id, email, roles, isAdmin };
+  const guestProjectIds = parseGuestProjectIds(roles);
+  return { id, email, roles, isAdmin, guestProjectIds };
 }

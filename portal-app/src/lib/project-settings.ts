@@ -109,8 +109,10 @@ export function canUserViewProject(
   project: Project,
   email: string,
   isAdmin: boolean,
+  guestProjectIds: string[] = [],
 ): boolean {
   if (isAdmin) return true;
   if (project.createdBy === email) return true;
-  return project.allowedEmails.includes(email) || project.readOnlyEmails.includes(email);
+  if (project.allowedEmails.includes(email) || project.readOnlyEmails.includes(email)) return true;
+  return guestProjectIds.includes(project.id);
 }

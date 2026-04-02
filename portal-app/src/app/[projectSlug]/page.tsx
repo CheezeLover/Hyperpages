@@ -22,7 +22,7 @@ export default async function ProjectPage({ params }: Props) {
     const projects = await getAllProjects();
     const decodedSlug = decodeURIComponent(projectSlug).toLowerCase();
     const match = projects.find(
-      (p) => canUserViewProject(p, user.email, user.isAdmin) && p.name.toLowerCase() === decodedSlug,
+      (p) => canUserViewProject(p, user.email, user.isAdmin, user.guestProjectIds) && p.name.toLowerCase() === decodedSlug,
     );
     if (match) initialProjectId = match.id;
 

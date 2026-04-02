@@ -11,7 +11,9 @@
       "Bash(powershell -Command \"podman ps --format ''table {{.Names}}\\\\t{{.Image}}\\\\t{{.Status}}''\")",
       "Bash(find 'C:\\\\Users\\\\VincentCROISE\\\\OneDrive - Ginesis Finance\\\\Documents\\\\GitHub\\\\Hyperset\\\\Hyperset\\\\Hyperpages' -type f \\\\\\(-name *.sql -o -name *.md -o -name *permission* -o -name *role* -o -name *access* \\\\\\))",
       "Bash(grep -E \"\\\\.\\(tsx|ts\\)$\")",
-      "Bash(grep -r \"canUserView\\\\|canManage\\\\|isAdmin\" 'C:\\\\Users\\\\VincentCROISE\\\\OneDrive - Ginesis Finance\\\\Documents\\\\GitHub\\\\Hyperset\\\\Hyperset\\\\Hyperpages' --include=*.ts --include=*.tsx)"
+      "Bash(grep -r \"canUserView\\\\|canManage\\\\|isAdmin\" 'C:\\\\Users\\\\VincentCROISE\\\\OneDrive - Ginesis Finance\\\\Documents\\\\GitHub\\\\Hyperset\\\\Hyperset\\\\Hyperpages' --include=*.ts --include=*.tsx)",
+      "Bash(find 'C:/Users/VincentCROISE/OneDrive - Ginesis Finance/Documents/GitHub/Hyperset/Hyperset/Hyperpages' -type f \\\\\\(-name Caddyfile -o -name caddy.json -o -name *.caddy -o -name docker-compose* -o -name Dockerfile -o -name .env* -o -name auth.ts -o -name *.md -o -name README* \\\\\\))",
+      "Bash(find 'C:/Users/VincentCROISE/OneDrive - Ginesis Finance/Documents/GitHub/Hyperset/Hyperset/Hyperpages' -path */src/lib/auth.ts -o -path */src/*auth*)"
     ]
   }
 }

@@ -61,9 +61,8 @@ auth.{$HYPERSET_DOMAIN} {
     tls internal {
         on_demand
     }
-    authorize with mypolicy
 
-    # Theme and branding assets
+    # Theme and branding assets — no auth needed
     handle /theme.json {
         root * /Caddy
         file_server
@@ -71,7 +70,7 @@ auth.{$HYPERSET_DOMAIN} {
         header Cache-Control "no-cache"
         header Access-Control-Allow-Origin "*"
     }
-    
+
     handle /logos/* {
         root * /Caddy
         file_server
@@ -79,11 +78,24 @@ auth.{$HYPERSET_DOMAIN} {
         header Access-Control-Allow-Origin "*"
     }
 
-    reverse_proxy hyperset-portal:3000 {
-        header_up X-Token-User-Id    {http.request.header.X-Token-User-Id}
-        header_up X-Token-User-Email {http.request.header.X-Token-User-Email}
-        header_up X-Token-User-Roles {http.request.header.X-Token-User-Roles}
-        flush_interval -1
+    # Guest invite code flow — SSO bypass.
+    # The portal validates the code and issues its own access_token JWT cookie.
+    handle /join/* {
+        reverse_proxy hyperset-portal:3000 {
+            flush_interval -1
+        }
+    }
+
+    # All other routes require SSO
+    handle {
+        authorize with mypolicy
+
+        reverse_proxy hyperset-portal:3000 {
+            header_up X-Token-User-Id    {http.request.header.X-Token-User-Id}
+            header_up X-Token-User-Email {http.request.header.X-Token-User-Email}
+            header_up X-Token-User-Roles {http.request.header.X-Token-User-Roles}
+            flush_interval -1
+        }
     }
 
     header Strict-Transport-Security "max-age=31536000; includeSubDomains"

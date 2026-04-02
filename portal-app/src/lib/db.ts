@@ -100,5 +100,21 @@ async function _runMigrations(): Promise<void> {
     ADD COLUMN IF NOT EXISTS read_only_emails TEXT[] NOT NULL DEFAULT '{}'
   `;
 
+  await sql`
+    CREATE TABLE IF NOT EXISTS hyperset_access_codes (
+      id          TEXT        PRIMARY KEY,
+      project_id  TEXT        NOT NULL,
+      code_hash   TEXT        NOT NULL UNIQUE,
+      created_by  TEXT        NOT NULL,
+      created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      expires_at  TIMESTAMPTZ NOT NULL
+    )
+  `;
+
+  await sql`
+    CREATE INDEX IF NOT EXISTS hyperset_access_codes_project_idx
+    ON hyperset_access_codes (project_id)
+  `;
+
   console.log("[db] Schema ready");
 }

@@ -75,6 +75,7 @@ export async function canUserViewPage(
   email: string,
   isAdmin: boolean,
   projects: Project[],
+  guestProjectIds: string[] = [],
 ): Promise<boolean> {
   const settings = await getPageSettings(name);
   if (settings.active === false) return false;
@@ -84,7 +85,7 @@ export async function canUserViewPage(
   // Access is granted through the page's project
   if (settings.projectId) {
     const project = projects.find((p) => p.id === settings.projectId);
-    if (project) return canUserViewProject(project, email, isAdmin);
+    if (project) return canUserViewProject(project, email, isAdmin, guestProjectIds);
   }
   return false;
 }

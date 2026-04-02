@@ -79,6 +79,8 @@ services:
       - PAGES_DIR=/hyperset/pages
       - PORTAL_DATABASE_URL=postgresql://portal:${PORTAL_DATABASE_PASSWORD:?PORTAL_DATABASE_PASSWORD must be set in .env}@hyperset-portal-db:5432/portal
       - NODE_ENV=production
+      # Required for guest invite code JWT signing (must match Caddy's AUTH_CRYPTO_KEY)
+      - AUTH_CRYPTO_KEY=${AUTH_CRYPTO_KEY}
     volumes:
       - ./theme.json:/app/theme.json:Z
       - hyperset_data:/hyperset
