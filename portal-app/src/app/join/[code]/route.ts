@@ -3,12 +3,13 @@ import { getAccessCodeByHash, hashCode, issueGuestJWT } from "@/lib/access-codes
 import { getProject } from "@/lib/project-settings";
 
 export async function GET(
-  request: NextRequest,
+  _request: NextRequest,
   { params }: { params: Promise<{ code: string }> },
 ) {
   const { code } = await params;
-  const base = new URL(request.url);
-  const errorUrl = new URL("/join", base.origin);
+  const domain = (process.env.HYPERSET_DOMAIN || "").trim() || "hyperset.internal";
+  const externalOrigin = `https://${domain}`;
+  const errorUrl = new URL("/join", externalOrigin);
 
   if (!code || code.length !== 5) {
     errorUrl.searchParams.set("error", "invalid");
@@ -54,7 +55,7 @@ export async function GET(
   });
 
   // 4. Redirect to the project page with the cookie set
-  const dest = new URL(`/${encodeURIComponent(project.name)}`, base.origin);
+  const dest = new URL(`/${encodeURIComponent(project.name)}`, externalOrigin);
   const response = NextResponse.redirect(dest);
 
   response.cookies.set("access_token", token, {
