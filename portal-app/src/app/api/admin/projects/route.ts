@@ -55,6 +55,7 @@ export async function POST(request: NextRequest) {
       icon?: string;
       iconColor?: string;
       allowedEmails?: string[];
+      readOnlyEmails?: string[];
     };
 
     const name = body.name?.trim();
@@ -68,11 +69,14 @@ export async function POST(request: NextRequest) {
       allowedEmails.push(user.email);
     }
 
+    const readOnlyEmails = Array.isArray(body.readOnlyEmails) ? body.readOnlyEmails : [];
+
     const project = await createProject({
       name,
       icon: body.icon?.trim() || undefined,
       iconColor: body.iconColor?.trim() || undefined,
       allowedEmails,
+      readOnlyEmails,
       createdBy: user.email,
     });
 
@@ -100,6 +104,7 @@ export async function PATCH(request: NextRequest) {
       icon?: string;
       iconColor?: string;
       allowedEmails?: string[];
+      readOnlyEmails?: string[];
     };
 
     const { id } = body;
@@ -123,11 +128,14 @@ export async function PATCH(request: NextRequest) {
       updatedEmails.push(project.createdBy);
     }
 
+    const updatedReadOnlyEmails: string[] | undefined = Array.isArray(body.readOnlyEmails) ? [...body.readOnlyEmails] : undefined;
+
     await updateProject(id, {
       name: body.name?.trim(),
       icon: body.icon !== undefined ? (body.icon.trim() || undefined) : undefined,
       iconColor: body.iconColor !== undefined ? (body.iconColor.trim() || undefined) : undefined,
       allowedEmails: updatedEmails,
+      readOnlyEmails: updatedReadOnlyEmails,
     });
 
     return NextResponse.json({ ok: true });

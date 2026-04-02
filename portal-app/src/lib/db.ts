@@ -95,5 +95,10 @@ async function _runMigrations(): Promise<void> {
     )
   `;
 
+  await sql`
+    ALTER TABLE hyperset_projects
+    ADD COLUMN IF NOT EXISTS read_only_emails TEXT[] NOT NULL DEFAULT '{}'
+  `;
+
   console.log("[db] Schema ready");
 }

@@ -8,7 +8,10 @@
       "Bash(find 'C:\\\\Users\\\\VincentCROISE\\\\OneDrive - Ginesis Finance\\\\Documents\\\\GitHub\\\\Hyperset\\\\Hyperset\\\\Hyperpages\\\\portal-app' -name index.html -o -name *.html)",
       "Bash(docker ps:*)",
       "Bash(podman ps:*)",
-      "Bash(powershell -Command \"podman ps --format ''table {{.Names}}\\\\t{{.Image}}\\\\t{{.Status}}''\")"
+      "Bash(powershell -Command \"podman ps --format ''table {{.Names}}\\\\t{{.Image}}\\\\t{{.Status}}''\")",
+      "Bash(find 'C:\\\\Users\\\\VincentCROISE\\\\OneDrive - Ginesis Finance\\\\Documents\\\\GitHub\\\\Hyperset\\\\Hyperset\\\\Hyperpages' -type f \\\\\\(-name *.sql -o -name *.md -o -name *permission* -o -name *role* -o -name *access* \\\\\\))",
+      "Bash(grep -E \"\\\\.\\(tsx|ts\\)$\")",
+      "Bash(grep -r \"canUserView\\\\|canManage\\\\|isAdmin\" 'C:\\\\Users\\\\VincentCROISE\\\\OneDrive - Ginesis Finance\\\\Documents\\\\GitHub\\\\Hyperset\\\\Hyperset\\\\Hyperpages' --include=*.ts --include=*.tsx)"
     ]
   }
 }

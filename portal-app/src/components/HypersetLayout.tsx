@@ -25,6 +25,7 @@ interface ProjectApiItem {
   icon?: string;
   iconColor?: string;
   allowedEmails: string[];
+  readOnlyEmails: string[];
   createdBy: string;
 }
 
@@ -32,9 +33,10 @@ interface HypersetLayoutProps {
   pagesUrl: string;
   isAdmin: boolean;
   userEmail: string;
+  canAccessAdmin: boolean;
 }
 
-export function HypersetLayout({ pagesUrl, isAdmin, userEmail }: HypersetLayoutProps) {
+export function HypersetLayout({ pagesUrl, isAdmin, userEmail, canAccessAdmin }: HypersetLayoutProps) {
   const [allPages, setAllPages] = useState<PageApiItem[]>([]);
   const [projects, setProjects] = useState<ProjectApiItem[]>([]);
   const [pages, setPages] = useState<Page[]>([]);
@@ -291,6 +293,7 @@ export function HypersetLayout({ pagesUrl, isAdmin, userEmail }: HypersetLayoutP
         onExportPdf={handleExportPdf}
         isExporting={isExporting}
         adminOpen={adminOpen}
+        canAccessAdmin={canAccessAdmin}
         onOpenAdmin={() => setAdminOpen((v) => !v)}
         onDisconnect={() => { window.location.href = "/api/auth/logout"; }}
       />
