@@ -78,6 +78,13 @@ auth.{$HYPERSET_DOMAIN} {
         header Access-Control-Allow-Origin "*"
     }
 
+    # Next.js static assets — no auth needed (required for /join page to hydrate)
+    handle /_next/static/* {
+        reverse_proxy hyperset-portal:3000 {
+            flush_interval -1
+        }
+    }
+
     # Guest invite code entry page — no SSO needed
     handle /join {
         reverse_proxy hyperset-portal:3000 {
