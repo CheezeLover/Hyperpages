@@ -65,13 +65,11 @@ export function HypersetLayout({ pagesUrl, isAdmin, userEmail, canAccessAdmin, i
       const { projects: projectItems } = await projRes.json() as { projects: ProjectApiItem[] };
       setProjects(projectItems);
       setAllPages(pageItems);
-      // Keep current project if it still exists; seed from initialProjectId on first load; otherwise fall back to first
+      // Keep current project if it still exists; otherwise fall back to initialProjectId, then first
       setSelectedProjectId((prev) => {
-        if (prev !== null) {
-          return projectItems.some((p) => p.id === prev) ? prev : (projectItems[0]?.id ?? null);
-        }
-        const seeded = initialProjectId && projectItems.find((p) => p.id === initialProjectId);
-        return seeded ? seeded.id : (projectItems[0]?.id ?? null);
+        if (prev !== null && projectItems.some((p) => p.id === prev)) return prev;
+        if (initialProjectId && projectItems.some((p) => p.id === initialProjectId)) return initialProjectId;
+        return projectItems[0]?.id ?? null;
       });
     } catch {
       // Portal API unavailable — not a fatal error
@@ -111,6 +109,15 @@ export function HypersetLayout({ pagesUrl, isAdmin, userEmail, canAccessAdmin, i
       return next.size === prev.size ? prev : next;
     });
   }, [selectedProjectId, allPages]);
+
+  // ── Apply initialProjectId — runs on mount and on client-side navigation ──────
+  // Using a separate effect ensures this overrides the loadData fallback even when
+  // the component instance is reused across Next.js client-side route transitions.
+  useEffect(() => {
+    if (initialProjectId) {
+      setSelectedProjectId(initialProjectId);
+    }
+  }, [initialProjectId]);
 
   // ── Polling — fetch raw data on mount, then every 10 s ───────────────────────
   useEffect(() => {
