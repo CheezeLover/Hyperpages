@@ -34,9 +34,10 @@ interface HypersetLayoutProps {
   isAdmin: boolean;
   userEmail: string;
   canAccessAdmin: boolean;
+  initialProjectId?: string;
 }
 
-export function HypersetLayout({ pagesUrl, isAdmin, userEmail, canAccessAdmin }: HypersetLayoutProps) {
+export function HypersetLayout({ pagesUrl, isAdmin, userEmail, canAccessAdmin, initialProjectId }: HypersetLayoutProps) {
   const [allPages, setAllPages] = useState<PageApiItem[]>([]);
   const [projects, setProjects] = useState<ProjectApiItem[]>([]);
   const [pages, setPages] = useState<Page[]>([]);
@@ -64,15 +65,18 @@ export function HypersetLayout({ pagesUrl, isAdmin, userEmail, canAccessAdmin }:
       const { projects: projectItems } = await projRes.json() as { projects: ProjectApiItem[] };
       setProjects(projectItems);
       setAllPages(pageItems);
-      // Keep current project if it still exists; otherwise fall back to first
+      // Keep current project if it still exists; seed from initialProjectId on first load; otherwise fall back to first
       setSelectedProjectId((prev) => {
-        const stillExists = projectItems.some((p) => p.id === prev);
-        return stillExists ? prev : (projectItems[0]?.id ?? null);
+        if (prev !== null) {
+          return projectItems.some((p) => p.id === prev) ? prev : (projectItems[0]?.id ?? null);
+        }
+        const seeded = initialProjectId && projectItems.find((p) => p.id === initialProjectId);
+        return seeded ? seeded.id : (projectItems[0]?.id ?? null);
       });
     } catch {
       // Portal API unavailable — not a fatal error
     }
-  }, []);
+  }, [initialProjectId]);
 
   // ── Derive visible sidebar pages whenever raw data or selection changes ───────
   // Pure local computation — no network call, no double-fetch on project switch.
@@ -207,6 +211,11 @@ export function HypersetLayout({ pagesUrl, isAdmin, userEmail, canAccessAdmin }:
 
   const handleSelectProject = (id: string) => {
     setSelectedProjectId(id);
+    const project = projects.find((p) => p.id === id);
+    if (project) {
+      const slug = encodeURIComponent(project.name);
+      window.history.replaceState(null, "", `/${slug}`);
+    }
   };
 
   // ── Export ────────────────────────────────────────────────────────────────────
