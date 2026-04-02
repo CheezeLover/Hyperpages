@@ -1,7 +1,6 @@
 "use client";
 
-import { useSearchParams } from "next/navigation";
-import { useState, Suspense } from "react";
+import { useState, useEffect } from "react";
 
 const MESSAGES: Record<string, { title: string; body: string }> = {
   invalid: {
@@ -18,12 +17,17 @@ const MESSAGES: Record<string, { title: string; body: string }> = {
   },
 };
 
-function JoinContent() {
-  const searchParams = useSearchParams();
-  const errorKey = searchParams.get("error") ?? "";
-  const message = MESSAGES[errorKey];
-
+export default function JoinPage() {
+  const [errorKey, setErrorKey] = useState<string>("");
   const [inputCode, setInputCode] = useState("");
+
+  // Read the error param client-side to avoid useSearchParams + Suspense hydration issues
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    setErrorKey(params.get("error") ?? "");
+  }, []);
+
+  const message = MESSAGES[errorKey];
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -122,13 +126,5 @@ function JoinContent() {
         )}
       </div>
     </div>
-  );
-}
-
-export default function JoinPage() {
-  return (
-    <Suspense>
-      <JoinContent />
-    </Suspense>
   );
 }
