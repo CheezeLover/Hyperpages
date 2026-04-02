@@ -290,6 +290,7 @@ function ProjectsTab({ userEmail, isAdmin, onPageFilesChanged }: { userEmail: st
   const [generatingCode, setGeneratingCode] = useState<string | null>(null); // projectId
   const [newCode, setNewCode] = useState<{ projectId: string; code: string } | null>(null);
   const [codeCopied, setCodeCopied] = useState(false);
+  const [urlCopied, setUrlCopied] = useState(false);
   const [deletingCode, setDeletingCode] = useState<string | null>(null);
 
   // Page state
@@ -355,7 +356,7 @@ function ProjectsTab({ userEmail, isAdmin, onPageFilesChanged }: { userEmail: st
     setEditName(p.name); setEditIcon(p.icon || ""); setEditIconColor(p.iconColor || "");
     setEditEmails(p.allowedEmails.filter((e) => e !== p.createdBy).join(", "));
     setEditReadOnlyEmails(p.readOnlyEmails.join(", "));
-    setNewCode(null); setCodeCopied(false);
+    setNewCode(null); setCodeCopied(false); setUrlCopied(false);
     // Load existing codes for this project
     fetch(`/api/admin/codes?projectId=${p.id}`, { credentials: "include" })
       .then((r) => r.ok ? r.json() : { codes: [] })
@@ -663,8 +664,22 @@ function ProjectsTab({ userEmail, isAdmin, onPageFilesChanged }: { userEmail: st
                               {codeCopied ? "✓ Copied" : "Copy"}
                             </button>
                           </div>
-                          <div style={{ fontSize: 10, opacity: 0.5, color: "var(--md-on-surface)", marginTop: 6 }}>
-                            Share this URL: <strong>{typeof window !== "undefined" ? window.location.origin : ""}/join/{newCode.code}</strong>
+                          <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 6 }}>
+                            <span style={{ fontSize: 10, opacity: 0.5, color: "var(--md-on-surface)", flex: 1, wordBreak: "break-all" }}>
+                              {typeof window !== "undefined" ? window.location.origin : ""}/join/{newCode.code}
+                            </span>
+                            <button
+                              onClick={() => {
+                                const url = `${window.location.origin}/join/${newCode.code}`;
+                                navigator.clipboard.writeText(url).then(() => {
+                                  setUrlCopied(true);
+                                  setTimeout(() => setUrlCopied(false), 2000);
+                                });
+                              }}
+                              style={{ ...ghostBtnStyle, padding: "4px 10px", fontSize: 11, flexShrink: 0 }}
+                            >
+                              {urlCopied ? "✓ Copied" : "Copy URL"}
+                            </button>
                           </div>
                         </div>
                       )}
