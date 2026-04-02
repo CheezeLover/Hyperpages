@@ -9,8 +9,8 @@ export default async function Home() {
   const explicitPagesUrl = (process.env.PAGES_PUBLIC_URL || "").trim();
   const pagesUrl = explicitPagesUrl || `https://pages.${domain}`;
 
-  // Users who are only in readOnlyEmails cannot access the admin panel.
-  // Admins, project creators, and users in allowedEmails can.
+  // Admins, project creators, and users in allowedEmails can access the admin panel.
+  // Guest users (access codes) cannot.
   let canAccessAdmin = user.isAdmin;
   if (!canAccessAdmin && user.email) {
     try {

@@ -25,7 +25,6 @@ interface ProjectApiItem {
   icon?: string;
   iconColor?: string;
   allowedEmails: string[];
-  readOnlyEmails: string[];
   createdBy: string;
 }
 

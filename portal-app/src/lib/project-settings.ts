@@ -14,7 +14,6 @@ export interface Project {
   icon?: string;
   iconColor?: string;
   allowedEmails: string[];
-  readOnlyEmails: string[];
   createdBy: string;
 }
 
@@ -34,16 +33,14 @@ export async function getAllProjects(): Promise<Project[]> {
     icon: string | null;
     icon_color: string | null;
     allowed_emails: string[];
-    read_only_emails: string[];
     created_by: string;
-  }[]>`SELECT id, name, icon, icon_color, allowed_emails, read_only_emails, created_by FROM hyperset_projects ORDER BY name`;
+  }[]>`SELECT id, name, icon, icon_color, allowed_emails, created_by FROM hyperset_projects ORDER BY name`;
   _cache = rows.map((r) => ({
     id: r.id,
     name: r.name,
     icon: r.icon ?? undefined,
     iconColor: r.icon_color ?? undefined,
     allowedEmails: r.allowed_emails,
-    readOnlyEmails: r.read_only_emails,
     createdBy: r.created_by,
   }));
   return _cache;
@@ -58,11 +55,11 @@ export async function createProject(data: Omit<Project, "id">): Promise<Project>
   await ensureSchema();
   const id = randomUUID();
   await sql`
-    INSERT INTO hyperset_projects (id, name, icon, icon_color, allowed_emails, read_only_emails, created_by)
+    INSERT INTO hyperset_projects (id, name, icon, icon_color, allowed_emails, created_by)
     VALUES (
       ${id}, ${data.name},
       ${data.icon ?? null}, ${data.iconColor ?? null},
-      ${data.allowedEmails}, ${data.readOnlyEmails}, ${data.createdBy}
+      ${data.allowedEmails}, ${data.createdBy}
     )
   `;
   invalidateProjectCache();
@@ -81,15 +78,13 @@ export async function updateProject(
     icon: patch.icon !== undefined ? patch.icon : proj.icon,
     iconColor: patch.iconColor !== undefined ? patch.iconColor : proj.iconColor,
     allowedEmails: patch.allowedEmails ?? proj.allowedEmails,
-    readOnlyEmails: patch.readOnlyEmails ?? proj.readOnlyEmails,
   };
   await sql`
     UPDATE hyperset_projects SET
-      name             = ${merged.name},
-      icon             = ${merged.icon ?? null},
-      icon_color       = ${merged.iconColor ?? null},
-      allowed_emails   = ${merged.allowedEmails},
-      read_only_emails = ${merged.readOnlyEmails}
+      name           = ${merged.name},
+      icon           = ${merged.icon ?? null},
+      icon_color     = ${merged.iconColor ?? null},
+      allowed_emails = ${merged.allowedEmails}
     WHERE id = ${id}
   `;
   invalidateProjectCache();
@@ -113,6 +108,6 @@ export function canUserViewProject(
 ): boolean {
   if (isAdmin) return true;
   if (project.createdBy === email) return true;
-  if (project.allowedEmails.includes(email) || project.readOnlyEmails.includes(email)) return true;
+  if (project.allowedEmails.includes(email)) return true;
   return guestProjectIds.includes(project.id);
 }

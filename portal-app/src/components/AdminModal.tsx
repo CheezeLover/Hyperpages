@@ -36,7 +36,6 @@ interface ProjectInfo {
   icon?: string;
   iconColor?: string;
   allowedEmails: string[];
-  readOnlyEmails: string[];
   createdBy: string;
 }
 
@@ -273,13 +272,11 @@ function ProjectsTab({ userEmail, isAdmin, onPageFilesChanged }: { userEmail: st
   const [newIcon, setNewIcon] = useState("");
   const [newIconColor, setNewIconColor] = useState("");
   const [newEmails, setNewEmails] = useState("");
-  const [newReadOnlyEmails, setNewReadOnlyEmails] = useState("");
   const [editingProject, setEditingProject] = useState<string | null>(null);
   const [editName, setEditName] = useState("");
   const [editIcon, setEditIcon] = useState("");
   const [editIconColor, setEditIconColor] = useState("");
   const [editEmails, setEditEmails] = useState("");
-  const [editReadOnlyEmails, setEditReadOnlyEmails] = useState("");
   const [savingProject, setSavingProject] = useState(false);
   const [deletingProject, setDeletingProject] = useState<string | null>(null);
   const [deletingProjectLoading, setDeletingProjectLoading] = useState(false);
@@ -335,14 +332,13 @@ function ProjectsTab({ userEmail, isAdmin, onPageFilesChanged }: { userEmail: st
     setCreating(true); setError("");
     try {
       const emails = newEmails.split(",").map((e) => e.trim()).filter(Boolean);
-      const readOnlyEmailsList = newReadOnlyEmails.split(",").map((e) => e.trim()).filter(Boolean);
       const res = await fetch("/api/admin/projects", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name: newName.trim(), icon: newIcon.trim() || undefined, iconColor: newIconColor.trim() || undefined, allowedEmails: emails, readOnlyEmails: readOnlyEmailsList }),
+        body: JSON.stringify({ name: newName.trim(), icon: newIcon.trim() || undefined, iconColor: newIconColor.trim() || undefined, allowedEmails: emails }),
       });
       if (!res.ok) throw new Error(((await res.json()) as { error?: string }).error ?? "Create failed");
-      setShowCreate(false); setNewName(""); setNewIcon(""); setNewIconColor(""); setNewEmails(""); setNewReadOnlyEmails("");
+      setShowCreate(false); setNewName(""); setNewIcon(""); setNewIconColor(""); setNewEmails("");
       loadData(true);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Create failed");
@@ -355,7 +351,6 @@ function ProjectsTab({ userEmail, isAdmin, onPageFilesChanged }: { userEmail: st
     setEditingProject(p.id);
     setEditName(p.name); setEditIcon(p.icon || ""); setEditIconColor(p.iconColor || "");
     setEditEmails(p.allowedEmails.filter((e) => e !== p.createdBy).join(", "));
-    setEditReadOnlyEmails(p.readOnlyEmails.join(", "));
     setNewCode(null); setCopiedType(null);
     // Load existing codes for this project
     fetch(`/api/admin/codes?projectId=${p.id}`, { credentials: "include" })
@@ -418,11 +413,10 @@ function ProjectsTab({ userEmail, isAdmin, onPageFilesChanged }: { userEmail: st
     setSavingProject(true); setError("");
     try {
       const emails = editEmails.split(",").map((e) => e.trim()).filter(Boolean);
-      const readOnlyEmailsList = editReadOnlyEmails.split(",").map((e) => e.trim()).filter(Boolean);
       const res = await fetch("/api/admin/projects", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ id, name: editName.trim(), icon: editIcon.trim() || undefined, iconColor: editIconColor.trim() || undefined, allowedEmails: emails, readOnlyEmails: readOnlyEmailsList }),
+        body: JSON.stringify({ id, name: editName.trim(), icon: editIcon.trim() || undefined, iconColor: editIconColor.trim() || undefined, allowedEmails: emails }),
       });
       if (!res.ok) throw new Error(((await res.json()) as { error?: string }).error ?? "Update failed");
       setEditingProject(null); loadData(true);
@@ -584,10 +578,6 @@ function ProjectsTab({ userEmail, isAdmin, onPageFilesChanged }: { userEmail: st
               <p style={{ fontSize: 11, opacity: 0.5, color: "var(--md-on-surface)", margin: "4px 0 0" }}>Your email is always included. These users can manage presentations.</p>
             </div>
             <div>
-              <label style={labelStyle}>Read-only access — Emails (comma-separated)</label>
-              <textarea value={newReadOnlyEmails} onChange={(e) => setNewReadOnlyEmails(e.target.value)} placeholder="viewer@example.com, guest@example.com" rows={2} style={{ ...inputStyle, resize: "vertical" }} />
-              <p style={{ fontSize: 11, opacity: 0.5, color: "var(--md-on-surface)", margin: "4px 0 0" }}>These users can view presentations only.</p>
-            </div>
             <div style={{ display: "flex", gap: 8 }}>
               <button onClick={handleCreateProject} disabled={creating} style={{ ...primaryBtnStyle, opacity: creating ? 0.6 : 1, padding: "8px 20px" }}>{creating ? "Creating..." : "Create"}</button>
               <button onClick={() => { setShowCreate(false); setError(""); }} style={ghostBtnStyle}>Cancel</button>
@@ -631,10 +621,6 @@ function ProjectsTab({ userEmail, isAdmin, onPageFilesChanged }: { userEmail: st
                     <div>
                       <label style={{ fontSize: 11, fontWeight: 600, color: "var(--md-on-surface)", opacity: 0.6, marginBottom: 4, display: "block" }}>Edit access</label>
                       <textarea value={editEmails} onChange={(e) => setEditEmails(e.target.value)} placeholder="email1@ex.com, email2@ex.com" rows={2} style={{ ...inputStyle, resize: "vertical" }} />
-                    </div>
-                    <div>
-                      <label style={{ fontSize: 11, fontWeight: 600, color: "var(--md-on-surface)", opacity: 0.6, marginBottom: 4, display: "block" }}>Read-only access</label>
-                      <textarea value={editReadOnlyEmails} onChange={(e) => setEditReadOnlyEmails(e.target.value)} placeholder="viewer@ex.com, guest@ex.com" rows={2} style={{ ...inputStyle, resize: "vertical" }} />
                     </div>
 
                     {/* ── Guest Access Codes ──────────────────────────────── */}
@@ -734,7 +720,6 @@ function ProjectsTab({ userEmail, isAdmin, onPageFilesChanged }: { userEmail: st
                         {projectPages.length} page{projectPages.length !== 1 ? "s" : ""}
                         {" · "}
                         {project.allowedEmails.length === 0 ? "creator only" : `${project.allowedEmails.length} edit`}
-                        {project.readOnlyEmails.length > 0 ? `, ${project.readOnlyEmails.length} read-only` : ""}
                         {project.createdBy === userEmail ? " · owner" : ""}
                       </div>
                     </div>
