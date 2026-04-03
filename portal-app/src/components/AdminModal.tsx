@@ -92,20 +92,17 @@ function Badge({ children, color = "default" }: { children: React.ReactNode; col
   );
 }
 
-// ── Page Edit Modal ────────────────────────────────────────────────────────────
-function PageEditModal({ page, projects, userEmail, isAdmin, onClose, onSaved, onFilesReplaced }: {
-  page: PageInfo; projects: ProjectInfo[]; userEmail: string; isAdmin: boolean;
-  onClose: () => void; onSaved: () => void; onFilesReplaced?: () => void;
+// ── Inline Page Editor ─────────────────────────────────────────────────────────
+function PageInlineEditor({ page, onClose, onSaved, onFilesReplaced }: {
+  page: PageInfo; onClose: () => void; onSaved: () => void; onFilesReplaced?: () => void;
 }) {
   const [editIcon, setEditIcon] = useState(page.icon || "");
   const [editIconColor, setEditIconColor] = useState(page.iconColor || "");
-  const [editProjectId, setEditProjectId] = useState<string>(page.projectId ?? "");
   const [editHtmlFile, setEditHtmlFile] = useState<File | null>(null);
   const [editBackendFile, setEditBackendFile] = useState<File | null>(null);
   const [removeBackend, setRemoveBackend] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
-  const visibleProjects = isAdmin ? projects : projects.filter((p) => p.createdBy === userEmail);
 
   const handleSave = async () => {
     setSaving(true); setError("");
@@ -122,7 +119,7 @@ function PageEditModal({ page, projects, userEmail, isAdmin, onClose, onSaved, o
       }
       const res = await fetch("/api/admin/pages", {
         method: "PATCH", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name: page.name, icon: editIcon.trim() || undefined, iconColor: editIconColor.trim() || undefined, projectId: editProjectId || undefined }),
+        body: JSON.stringify({ name: page.name, icon: editIcon.trim() || undefined, iconColor: editIconColor.trim() || undefined }),
       });
       if (!res.ok) throw new Error(((await res.json()) as { error?: string }).error ?? "Update failed");
       onSaved(); onClose();
@@ -132,51 +129,38 @@ function PageEditModal({ page, projects, userEmail, isAdmin, onClose, onSaved, o
   };
 
   return (
-    <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)", zIndex: 1001, display: "flex", alignItems: "center", justifyContent: "center" }}
-      onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
-      <div style={{ background: "var(--md-surface-cont)", borderRadius: 16, padding: 28, minWidth: 380, maxWidth: 480, width: "90%", maxHeight: "85vh", overflowY: "auto", boxShadow: "0 20px 60px rgba(0,0,0,0.25)" }}>
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 24 }}>
-          <h3 style={{ fontSize: 15, fontWeight: 700, color: "var(--md-on-surface)", margin: 0 }}>Edit page — {page.name}</h3>
-          <button onClick={onClose} style={{ background: "none", border: "none", cursor: "pointer", color: "var(--md-on-surface)", opacity: 0.4, fontSize: 20, lineHeight: 1, padding: 4 }}>×</button>
-        </div>
-        {error && <div style={{ marginBottom: 16 }}><ErrorBanner msg={error} /></div>}
-        <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-          <div style={{ display: "flex", gap: 10 }}>
-            <div style={{ flex: 1 }}>
-              <label style={label}>Icon</label>
-              <input type="text" value={editIcon} onChange={(e) => setEditIcon(e.target.value.slice(0, 2))} placeholder={page.name.charAt(0).toUpperCase()} style={input} />
-            </div>
-            <div style={{ flex: 2 }}>
-              <label style={label}>Icon Color</label>
-              <input type="text" value={editIconColor} onChange={(e) => setEditIconColor(e.target.value)} placeholder="#1a73e8" style={input} />
-            </div>
+    <div style={{ padding: "14px 20px 16px", background: "var(--md-surface-cont)", borderTop: "1px solid var(--md-outline-var)" }}>
+      {error && <div style={{ marginBottom: 12 }}><ErrorBanner msg={error} /></div>}
+      <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+        <div style={{ display: "flex", gap: 10 }}>
+          <div style={{ flex: 1 }}>
+            <label style={label}>Icon</label>
+            <input type="text" value={editIcon} onChange={(e) => setEditIcon(e.target.value.slice(0, 2))} placeholder={page.name.charAt(0).toUpperCase()} style={input} />
           </div>
-          {visibleProjects.length > 1 && (
-            <div>
-              <label style={label}>Project</label>
-              <select value={editProjectId} onChange={(e) => setEditProjectId(e.target.value)} style={{ ...input, appearance: "none" }}>
-                {visibleProjects.map((p) => <option key={p.id} value={p.id}>{p.icon ? `${p.icon} ` : ""}{p.name}</option>)}
-              </select>
-            </div>
-          )}
-          <div>
-            <label style={label}>Replace HTML File</label>
-            <input type="file" accept=".html" onChange={(e) => setEditHtmlFile(e.target.files?.[0] ?? null)} style={{ fontSize: 12, color: "var(--md-on-surface)" }} />
-          </div>
-          <div>
-            <label style={label}>Replace Backend File</label>
-            <input type="file" accept=".py" onChange={(e) => setEditBackendFile(e.target.files?.[0] ?? null)} style={{ fontSize: 12, color: "var(--md-on-surface)" }} />
-            {page.hasBackend && (
-              <label style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 10, cursor: "pointer" }}>
-                <input type="checkbox" checked={removeBackend} onChange={(e) => setRemoveBackend(e.target.checked)} />
-                <span style={{ fontSize: 12, color: "#ef4444" }}>Remove existing backend</span>
-              </label>
-            )}
+          <div style={{ flex: 3 }}>
+            <label style={label}>Icon Color</label>
+            <input type="text" value={editIconColor} onChange={(e) => setEditIconColor(e.target.value)} placeholder="#1a73e8" style={input} />
           </div>
         </div>
-        <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, marginTop: 24 }}>
-          <button onClick={onClose} style={btnGhost}>Cancel</button>
-          <button onClick={handleSave} disabled={saving} style={{ ...btnPrimary, opacity: saving ? 0.6 : 1 }}>{saving ? "Saving…" : "Save"}</button>
+        <div style={{ display: "flex", gap: 10 }}>
+          <div style={{ flex: 1 }}>
+            <label style={label}>Replace HTML</label>
+            <input type="file" accept=".html" onChange={(e) => setEditHtmlFile(e.target.files?.[0] ?? null)} style={{ fontSize: 12, color: "var(--md-on-surface)", width: "100%" }} />
+          </div>
+          <div style={{ flex: 1 }}>
+            <label style={label}>Replace Backend</label>
+            <input type="file" accept=".py" onChange={(e) => setEditBackendFile(e.target.files?.[0] ?? null)} style={{ fontSize: 12, color: "var(--md-on-surface)", width: "100%" }} />
+          </div>
+        </div>
+        {page.hasBackend && (
+          <label style={{ display: "flex", alignItems: "center", gap: 8, cursor: "pointer" }}>
+            <input type="checkbox" checked={removeBackend} onChange={(e) => setRemoveBackend(e.target.checked)} style={{ accentColor: "#ef4444" }} />
+            <span style={{ fontSize: 12, color: "#ef4444" }}>Remove existing backend</span>
+          </label>
+        )}
+        <div style={{ display: "flex", gap: 8 }}>
+          <button onClick={handleSave} disabled={saving} style={{ ...btnPrimary, padding: "7px 16px", fontSize: 12, opacity: saving ? 0.6 : 1 }}>{saving ? "Saving…" : "Save"}</button>
+          <button onClick={onClose} style={{ ...btnGhost, padding: "7px 12px", fontSize: 12 }}>Cancel</button>
         </div>
       </div>
     </div>
@@ -274,7 +258,7 @@ function ProjectsTab({ userEmail, isAdmin, onPageFilesChanged }: { userEmail: st
   const copyTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [deletingCode, setDeletingCode] = useState<string | null>(null);
 
-  const [editModalPage, setEditModalPage] = useState<PageInfo | null>(null);
+  const [editingPage, setEditingPage] = useState<string | null>(null); // page name
   const [uploadForProject, setUploadForProject] = useState<string | null>(null);
   const [deletingPage, setDeletingPage] = useState<string | null>(null);
   const [showTemplates, setShowTemplates] = useState(false);
@@ -441,11 +425,6 @@ function ProjectsTab({ userEmail, isAdmin, onPageFilesChanged }: { userEmail: st
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
       {error && <ErrorBanner msg={error} />}
-
-      {editModalPage && (
-        <PageEditModal page={editModalPage} projects={projects} userEmail={userEmail} isAdmin={isAdmin}
-          onClose={() => setEditModalPage(null)} onSaved={() => loadData(true)} onFilesReplaced={onPageFilesChanged} />
-      )}
 
       {/* Header row */}
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
@@ -668,47 +647,66 @@ function ProjectsTab({ userEmail, isAdmin, onPageFilesChanged }: { userEmail: st
                           const canEdit = canManagePage(page);
                           const isActive = page.active !== false;
                           const deleteKey = `${project.id}:${page.name}`;
+                          const isEditingThisPage = editingPage === page.name;
+                          const isLastRow = idx === projectPages.length - 1 && !canAddToProject(project);
                           return (
-                            <div key={page.name} style={{
-                              display: "flex", alignItems: "center", gap: 10, padding: "9px 16px 9px 20px",
-                              borderBottom: idx < projectPages.length - 1 || canAddToProject(project) ? "1px solid var(--md-outline-var)" : "none",
-                              background: idx % 2 === 0 ? "transparent" : "rgba(0,0,0,0.01)",
-                            }}>
-                              {/* Page icon */}
-                              <div style={{ width: 26, height: 26, borderRadius: 6, background: page.iconColor || (isActive ? "var(--md-primary)" : "var(--md-surface-cont)"), display: "flex", alignItems: "center", justifyContent: "center", color: isActive ? "white" : "var(--md-on-surface)", opacity: isActive ? 1 : 0.4, fontSize: 11, fontWeight: 700, flexShrink: 0 }}>
-                                {page.icon || page.name.charAt(0).toUpperCase()}
+                            <div key={page.name}>
+                              {/* Page row */}
+                              <div style={{
+                                display: "flex", alignItems: "center", gap: 10, padding: "9px 16px 9px 20px",
+                                borderBottom: (!isLastRow || isEditingThisPage) ? "1px solid var(--md-outline-var)" : "none",
+                              }}>
+                                {/* Page icon */}
+                                <div style={{ width: 26, height: 26, borderRadius: 6, background: page.iconColor || (isActive ? "var(--md-primary)" : "var(--md-surface-cont)"), display: "flex", alignItems: "center", justifyContent: "center", color: isActive ? "white" : "var(--md-on-surface)", opacity: isActive ? 1 : 0.4, fontSize: 11, fontWeight: 700, flexShrink: 0 }}>
+                                  {page.icon || page.name.charAt(0).toUpperCase()}
+                                </div>
+
+                                {/* Page name */}
+                                <span style={{ flex: 1, fontSize: 12, fontWeight: 500, color: "var(--md-on-surface)", opacity: isActive ? 0.85 : 0.4 }}>
+                                  {page.name}
+                                  {page.hasBackend && <span style={{ marginLeft: 6, fontSize: 10, opacity: 0.4, fontFamily: "monospace" }}>py</span>}
+                                </span>
+
+                                {canEdit && (
+                                  <div style={{ display: "flex", alignItems: "center", gap: 4, flexShrink: 0 }}>
+                                    {/* Order arrows */}
+                                    <div style={{ display: "flex", flexDirection: "column", marginRight: 2 }}>
+                                      <button onClick={() => handleMoveOrder(page.name, projectPages, -1)} disabled={idx === 0} title="Move up" style={{ background: "none", border: "none", cursor: idx === 0 ? "default" : "pointer", opacity: idx === 0 ? 0.1 : 0.35, fontSize: 8, padding: "1px 4px", color: "var(--md-on-surface)", lineHeight: 1 }}>▲</button>
+                                      <button onClick={() => handleMoveOrder(page.name, projectPages, 1)} disabled={idx === projectPages.length - 1} title="Move down" style={{ background: "none", border: "none", cursor: idx === projectPages.length - 1 ? "default" : "pointer", opacity: idx === projectPages.length - 1 ? 0.1 : 0.35, fontSize: 8, padding: "1px 4px", color: "var(--md-on-surface)", lineHeight: 1 }}>▼</button>
+                                    </div>
+
+                                    {/* Visibility toggle */}
+                                    <label title={isActive ? "Visible" : "Hidden"} style={{ cursor: "pointer", display: "flex", alignItems: "center" }}>
+                                      <input type="checkbox" checked={isActive} onChange={(e) => handleToggleActive(page.name, e.target.checked)} style={{ width: 13, height: 13, cursor: "pointer", accentColor: "var(--md-primary)" }} />
+                                    </label>
+
+                                    <button
+                                      onClick={() => setEditingPage(isEditingThisPage ? null : page.name)}
+                                      style={{ ...btnSecondary, padding: "4px 10px", fontSize: 11, background: isEditingThisPage ? "var(--md-primary)" : undefined, color: isEditingThisPage ? "#fff" : undefined, border: isEditingThisPage ? "none" : undefined }}
+                                    >
+                                      {isEditingThisPage ? "Close" : "Edit"}
+                                    </button>
+
+                                    {deletingPage === deleteKey ? (
+                                      <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                                        <button onClick={() => handleDeletePage(page.name)} style={{ ...btnDanger, padding: "3px 8px", fontSize: 11 }}>Delete</button>
+                                        <button onClick={() => setDeletingPage(null)} style={{ ...btnGhost, padding: "3px 8px", fontSize: 11 }}>No</button>
+                                      </div>
+                                    ) : (
+                                      <button onClick={() => setDeletingPage(deleteKey)} style={{ background: "none", border: "none", cursor: "pointer", color: "var(--md-on-surface)", opacity: 0.3, fontSize: 14, padding: "2px 6px", borderRadius: 6, lineHeight: 1 }}>✕</button>
+                                    )}
+                                  </div>
+                                )}
                               </div>
 
-                              {/* Page name */}
-                              <span style={{ flex: 1, fontSize: 12, fontWeight: 500, color: "var(--md-on-surface)", opacity: isActive ? 0.85 : 0.4 }}>
-                                {page.name}
-                                {page.hasBackend && <span style={{ marginLeft: 6, fontSize: 10, opacity: 0.4, fontFamily: "monospace" }}>py</span>}
-                              </span>
-
-                              {canEdit && (
-                                <div style={{ display: "flex", alignItems: "center", gap: 4, flexShrink: 0 }}>
-                                  {/* Order arrows */}
-                                  <div style={{ display: "flex", flexDirection: "column", marginRight: 2 }}>
-                                    <button onClick={() => handleMoveOrder(page.name, projectPages, -1)} disabled={idx === 0} title="Move up" style={{ background: "none", border: "none", cursor: idx === 0 ? "default" : "pointer", opacity: idx === 0 ? 0.1 : 0.35, fontSize: 8, padding: "1px 4px", color: "var(--md-on-surface)", lineHeight: 1 }}>▲</button>
-                                    <button onClick={() => handleMoveOrder(page.name, projectPages, 1)} disabled={idx === projectPages.length - 1} title="Move down" style={{ background: "none", border: "none", cursor: idx === projectPages.length - 1 ? "default" : "pointer", opacity: idx === projectPages.length - 1 ? 0.1 : 0.35, fontSize: 8, padding: "1px 4px", color: "var(--md-on-surface)", lineHeight: 1 }}>▼</button>
-                                  </div>
-
-                                  {/* Visibility toggle */}
-                                  <label title={isActive ? "Visible" : "Hidden"} style={{ cursor: "pointer", display: "flex", alignItems: "center" }}>
-                                    <input type="checkbox" checked={isActive} onChange={(e) => handleToggleActive(page.name, e.target.checked)} style={{ width: 13, height: 13, cursor: "pointer", accentColor: "var(--md-primary)" }} />
-                                  </label>
-
-                                  <button onClick={() => setEditModalPage(page)} style={{ ...btnSecondary, padding: "4px 10px", fontSize: 11 }}>Edit</button>
-
-                                  {deletingPage === deleteKey ? (
-                                    <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
-                                      <button onClick={() => handleDeletePage(page.name)} style={{ ...btnDanger, padding: "3px 8px", fontSize: 11 }}>Delete</button>
-                                      <button onClick={() => setDeletingPage(null)} style={{ ...btnGhost, padding: "3px 8px", fontSize: 11 }}>No</button>
-                                    </div>
-                                  ) : (
-                                    <button onClick={() => setDeletingPage(deleteKey)} style={{ background: "none", border: "none", cursor: "pointer", color: "var(--md-on-surface)", opacity: 0.3, fontSize: 14, padding: "2px 6px", borderRadius: 6, lineHeight: 1 }}>✕</button>
-                                  )}
-                                </div>
+                              {/* Inline editor — expands below the row */}
+                              {isEditingThisPage && (
+                                <PageInlineEditor
+                                  page={page}
+                                  onClose={() => setEditingPage(null)}
+                                  onSaved={() => { setEditingPage(null); loadData(true); }}
+                                  onFilesReplaced={onPageFilesChanged}
+                                />
                               )}
                             </div>
                           );
