@@ -267,7 +267,7 @@ function UploadForm({ projectId, onClose, onUploaded }: { projectId: string; onC
 }
 
 // ── Projects + Pages Tab ───────────────────────────────────────────────────────
-function ProjectsTab({ userEmail, isAdmin, onPageFilesChanged }: { userEmail: string; isAdmin: boolean; onPageFilesChanged?: () => void }) {
+function ProjectsTab({ userEmail, isAdmin, onPageFilesChanged, searchQuery }: { userEmail: string; isAdmin: boolean; onPageFilesChanged?: () => void; searchQuery?: string }) {
   const [projects, setProjects] = useState<ProjectInfo[]>([]);
   const [pages, setPages] = useState<PageInfo[]>([]);
   const [loading, setLoading] = useState(true);
@@ -463,6 +463,9 @@ function ProjectsTab({ userEmail, isAdmin, onPageFilesChanged }: { userEmail: st
   };
 
   if (loading) return <Spinner />;
+  const visibleProjects = searchQuery?.trim()
+    ? projects.filter((p) => p.name.toLowerCase().includes(searchQuery.toLowerCase()))
+    : projects;
   const canAddToProject = (project: ProjectInfo) =>
     isAdmin || project.createdBy === userEmail || project.allowedEmails.includes(userEmail);
 
@@ -537,19 +540,19 @@ function ProjectsTab({ userEmail, isAdmin, onPageFilesChanged }: { userEmail: st
       )}
 
       {/* Projects list */}
-      {projects.length === 0 ? (
+      {visibleProjects.length === 0 ? (
         <div style={{ textAlign: "center", padding: "48px 24px", color: "var(--md-on-surface)", opacity: 0.4, fontSize: 13 }}>
-          No projects yet. Create one to get started.
+          {projects.length === 0 ? "No projects yet. Create one to get started." : "No projects match your search."}
         </div>
       ) : (
-        <div style={{ display: "flex", flexDirection: "column", borderTop: "1px solid var(--md-outline-var)" }}>
-          {projects.map((project) => {
+        <div style={{ display: "flex", flexDirection: "column", gap: 3, background: "var(--md-outline-var)", borderTop: "1px solid var(--md-outline-var)" }}>
+          {visibleProjects.map((project) => {
             const canManageProject = isAdmin || project.createdBy === userEmail || project.allowedEmails.includes(userEmail);
             const canDeleteProject = isAdmin || project.createdBy === userEmail;
             const projectPages = pages.filter((p) => p.projectId === project.id).sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
 
             return (
-              <div key={project.id} style={{ background: "var(--md-surface)", borderBottom: "1px solid var(--md-outline-var)", overflow: "hidden" }}>
+              <div key={project.id} style={{ background: "var(--md-surface)", overflow: "hidden" }}>
 
                 {/* ── Edit mode ─────────────────────────────────────────────── */}
                 {editingProject === project.id ? (
@@ -818,6 +821,19 @@ function ProjectsTab({ userEmail, isAdmin, onPageFilesChanged }: { userEmail: st
 
 // ── Main Admin Panel ───────────────────────────────────────────────────────────
 export function AdminModal({ onClose, userEmail, isAdmin, selectedProjectId, onSelectProject, projects, onPageFilesChanged }: AdminModalProps) {
+  const [searchOpen, setSearchOpen] = React.useState(false);
+  const [searchQuery, setSearchQuery] = React.useState("");
+  const searchRef = React.useRef<HTMLInputElement>(null);
+
+  const filteredProjects = searchQuery.trim()
+    ? projects.filter((p) => p.name.toLowerCase().includes(searchQuery.toLowerCase()))
+    : projects;
+
+  const handleToggleSearch = () => {
+    if (searchOpen) { setSearchOpen(false); setSearchQuery(""); }
+    else { setSearchOpen(true); setTimeout(() => searchRef.current?.focus(), 0); }
+  };
+
   return (
     <>
       <style>{spinKeyframes}</style>
@@ -828,16 +844,35 @@ export function AdminModal({ onClose, userEmail, isAdmin, selectedProjectId, onS
           <div style={{ width: 28, height: 28, borderRadius: 4, background: "var(--md-primary)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
             <svg viewBox="0 0 24 24" width={14} height={14} fill="white"><path d="M3 18h18v-2H3v2zm0-5h18v-2H3v2zm0-7v2h18V6H3z"/></svg>
           </div>
-          <span style={{ fontSize: 14, fontWeight: 700, color: "var(--md-on-surface)", letterSpacing: "-0.01em" }}>Admin</span>
-          <button onClick={onClose} style={{ marginLeft: "auto", background: "none", border: "none", cursor: "pointer", color: "var(--md-on-surface)", opacity: 0.35, fontSize: 20, lineHeight: 1, padding: "2px 6px", borderRadius: 6 }}>×</button>
+          {searchOpen ? (
+            <input
+              ref={searchRef}
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Search projects…"
+              style={{ flex: 1, fontSize: 13, padding: "4px 10px", border: "1px solid var(--md-outline-var)", borderRadius: 4, background: "var(--md-surface)", color: "var(--md-on-surface)", outline: "none" }}
+            />
+          ) : (
+            <span style={{ fontSize: 14, fontWeight: 700, color: "var(--md-on-surface)", letterSpacing: "-0.01em" }}>Admin</span>
+          )}
+          <button onClick={handleToggleSearch} title={searchOpen ? "Close search" : "Search projects"}
+            style={{ marginLeft: searchOpen ? 0 : "auto", background: "none", border: "none", cursor: "pointer", color: "var(--md-on-surface)", opacity: searchOpen ? 0.7 : 0.35, display: "flex", alignItems: "center", padding: "4px 6px", borderRadius: 4 }}>
+            {searchOpen ? (
+              <svg viewBox="0 0 24 24" width={16} height={16} fill="currentColor"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+            ) : (
+              <svg viewBox="0 0 24 24" width={16} height={16} fill="currentColor"><path d="M15.5 14h-.79l-.28-.27A6.471 6.471 0 0 0 16 9.5 6.5 6.5 0 1 0 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/></svg>
+            )}
+          </button>
+          {!searchOpen && <button onClick={onClose} style={{ background: "none", border: "none", cursor: "pointer", color: "var(--md-on-surface)", opacity: 0.35, fontSize: 20, lineHeight: 1, padding: "2px 6px", borderRadius: 6 }}>×</button>}
         </div>
 
         {/* Active project selector */}
         {projects.length > 0 && (
           <div style={{ padding: "10px 20px", borderBottom: "1px solid var(--md-outline-var)", flexShrink: 0 }}>
             <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", color: "var(--md-on-surface)", opacity: 0.35, marginBottom: 8 }}>Active project</div>
-            <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-              {projects.map((p) => {
+            {/* Capped at 3 rows (~108px) — scrollable when more */}
+            <div style={{ display: "flex", gap: 6, flexWrap: "wrap", maxHeight: 108, overflowY: "auto" }}>
+              {filteredProjects.map((p) => {
                 const isActive = p.id === selectedProjectId;
                 return (
                   <button key={p.id} onClick={() => onSelectProject(p.id)} title={p.name}
@@ -854,13 +889,16 @@ export function AdminModal({ onClose, userEmail, isAdmin, selectedProjectId, onS
                   </button>
                 );
               })}
+              {filteredProjects.length === 0 && (
+                <span style={{ fontSize: 12, color: "var(--md-on-surface)", opacity: 0.4 }}>No match</span>
+              )}
             </div>
           </div>
         )}
 
         {/* Body */}
         <div style={{ flex: 1, overflowY: "auto", padding: 0 }}>
-          <ProjectsTab userEmail={userEmail} isAdmin={isAdmin} onPageFilesChanged={onPageFilesChanged} />
+          <ProjectsTab userEmail={userEmail} isAdmin={isAdmin} onPageFilesChanged={onPageFilesChanged} searchQuery={searchQuery} />
         </div>
       </div>
     </>
