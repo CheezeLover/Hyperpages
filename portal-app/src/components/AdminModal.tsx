@@ -437,7 +437,8 @@ function ProjectsTab({ userEmail, isAdmin, onPageFilesChanged }: { userEmail: st
   };
 
   if (loading) return <Spinner />;
-  const canAddToProject = (project: ProjectInfo) => isAdmin || project.createdBy === userEmail;
+  const canAddToProject = (project: ProjectInfo) =>
+    isAdmin || project.createdBy === userEmail || project.allowedEmails.includes(userEmail);
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
