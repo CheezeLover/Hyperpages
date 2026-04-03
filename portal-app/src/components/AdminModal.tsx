@@ -656,8 +656,8 @@ function ProjectsTab({ userEmail, isAdmin, onPageFilesChanged }: { userEmail: st
                           {project.createdBy === userEmail && " · owner"}
                         </div>
                         {!project.secure && (
-                          <div style={{ fontSize: 10, color: "#f59e0b", marginTop: 3, display: "flex", alignItems: "center", gap: 4 }}>
-                            <span>⚠</span><span style={{ opacity: 0.85 }}>Do not store confidential or secret information in this project</span>
+                          <div style={{ display: "inline-flex", alignItems: "center", gap: 4, marginTop: 4, padding: "2px 8px 2px 6px", borderRadius: 20, background: "rgba(245,158,11,0.08)", border: "1px solid rgba(245,158,11,0.22)", fontSize: 10, fontWeight: 500, color: "#d97706", whiteSpace: "nowrap" }}>
+                            <span style={{ fontSize: 9 }}>⚠</span><span>Not for confidential data</span>
                           </div>
                         )}
                       </div>
