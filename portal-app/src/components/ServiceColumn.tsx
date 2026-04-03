@@ -21,15 +21,16 @@ interface ServiceColumnProps {
   onDisconnect?: () => void;
 }
 
-function pageIcon(name: string, icon?: string, iconColor?: string) {
+function pageIcon(name: string, icon?: string, iconColor?: string, active?: boolean) {
   const displayChar = icon || name.charAt(0).toUpperCase();
+  const color = iconColor || "currentColor";
   return (
-    <svg viewBox="0 0 24 24" width={28} height={28}>
-      <rect x="3" y="3" width="18" height="18" rx="4" fill={iconColor || "currentColor"} opacity={0.15} />
+    <svg viewBox="0 0 24 24" width={26} height={26}>
+      <rect x="3" y="3" width="18" height="18" rx="5" fill={color} opacity={active ? 0.22 : 0.11} />
       <text
-        x="12" y="16.5" textAnchor="middle" fontSize="12"
-        fontFamily="system-ui,sans-serif" fontWeight="600"
-        fill={iconColor || "currentColor"} opacity={0.9}
+        x="12" y="16.5" textAnchor="middle" fontSize="11"
+        fontFamily="system-ui,sans-serif" fontWeight="700"
+        fill={color} opacity={active ? 1 : 0.55}
       >
         {displayChar}
       </text>
@@ -49,12 +50,18 @@ function ServiceBtn({
 }) {
   const [hovered, setHovered] = React.useState(false);
   const isPrimary = colorScheme === "primary";
+
   const bgColor = active
-    ? isPrimary ? "var(--md-primary)" : "var(--md-secondary-cont)"
+    ? isPrimary ? "var(--md-primary)" : "rgba(211, 84, 0, 0.12)"
     : hovered
-    ? isPrimary ? "var(--md-primary-cont)" : "var(--md-secondary-cont)"
+    ? isPrimary ? "var(--md-primary-cont)" : "rgba(211, 84, 0, 0.07)"
     : "transparent";
-  const iconColor = active && isPrimary ? "#ffffff" : isPrimary ? "var(--md-primary)" : "var(--md-on-sec-cont)";
+
+  const iconColor = active
+    ? isPrimary ? "#ffffff" : "var(--md-primary)"
+    : hovered
+    ? isPrimary ? "var(--md-primary)" : "var(--md-on-surface)"
+    : "var(--md-on-surface)";
 
   return (
     <div style={{ position: "relative" }}>
@@ -63,12 +70,59 @@ function ServiceBtn({
         onMouseEnter={() => setHovered(true)}
         onMouseLeave={() => setHovered(false)}
         title={tooltip}
-        style={{ width: 40, height: 40, border: "none", borderRadius: "var(--radius-m)", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", background: bgColor, color: iconColor, position: "relative", transition: "background 0.2s", boxShadow: "none" }}
+        style={{
+          width: 40,
+          height: 40,
+          border: "none",
+          borderRadius: "var(--radius-m)",
+          cursor: "pointer",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          background: bgColor,
+          color: iconColor,
+          position: "relative",
+          overflow: "hidden",
+          transition: "background 0.18s, color 0.18s",
+          boxShadow: "none",
+          opacity: active || hovered ? 1 : 0.65,
+        }}
       >
+        {/* Active indicator strip */}
+        {active && (
+          <span style={{
+            position: "absolute",
+            left: 0,
+            top: 0,
+            width: isPortrait ? "100%" : 2,
+            height: isPortrait ? 2 : "100%",
+            background: "var(--md-primary)",
+            borderRadius: 1,
+            pointerEvents: "none",
+          }} />
+        )}
         {children}
       </button>
+
+      {/* Tooltip */}
       {hovered && !isPortrait && (
-        <div style={{ position: "absolute", right: "calc(100% + 8px)", top: "50%", transform: "translateY(-50%)", background: "var(--md-surface-cont-hi)", color: "var(--md-on-surface)", padding: "4px 10px", borderRadius: 6, fontSize: 12, whiteSpace: "nowrap", pointerEvents: "none", boxShadow: "0 2px 8px rgba(0,0,0,.12)", zIndex: 999 }}>
+        <div style={{
+          position: "absolute",
+          right: "calc(100% + 10px)",
+          top: "50%",
+          transform: "translateY(-50%)",
+          background: "var(--md-surface-cont-hi)",
+          color: "var(--md-on-surface)",
+          padding: "5px 11px",
+          borderRadius: 8,
+          fontSize: 12,
+          fontWeight: 500,
+          whiteSpace: "nowrap",
+          pointerEvents: "none",
+          boxShadow: "0 2px 12px rgba(0,0,0,.14)",
+          zIndex: 999,
+          letterSpacing: "0.01em",
+        }}>
           {tooltip}
         </div>
       )}
@@ -76,8 +130,8 @@ function ServiceBtn({
   );
 }
 
-const EDGE_TRIGGER_PX = 20;   // px from the right edge that reveals the bar
-const AUTO_HIDE_MS    = 2000; // ms before the bar collapses in fullscreen
+const EDGE_TRIGGER_PX = 20;
+const AUTO_HIDE_MS    = 2000;
 
 export function ServiceColumn({ isPortraitMode, pages, selectedPage, onSelectPage, onExportPdf, isExporting, adminOpen, canAccessAdmin = true, onOpenAdmin, onDisconnect }: ServiceColumnProps) {
   const [isFullscreen, setIsFullscreen] = React.useState(false);
@@ -90,19 +144,16 @@ export function ServiceColumn({ isPortraitMode, pages, selectedPage, onSelectPag
     return () => document.removeEventListener("fullscreenchange", onChange);
   }, []);
 
-  // Schedule the bar to hide after AUTO_HIDE_MS
   const scheduleHide = React.useCallback(() => {
     if (hideTimerRef.current) clearTimeout(hideTimerRef.current);
     hideTimerRef.current = setTimeout(() => setCollapsed(true), AUTO_HIDE_MS);
   }, []);
 
-  // Show the bar and restart the hide timer
   const showBar = React.useCallback(() => {
     setCollapsed(false);
     scheduleHide();
   }, [scheduleHide]);
 
-  // On fullscreen enter/exit: reset collapsed state and timer
   React.useEffect(() => {
     setCollapsed(false);
     if (isFullscreen) {
@@ -113,12 +164,6 @@ export function ServiceColumn({ isPortraitMode, pages, selectedPage, onSelectPag
     return () => { if (hideTimerRef.current) clearTimeout(hideTimerRef.current); };
   }, [isFullscreen, scheduleHide]);
 
-  // NOTE: We intentionally do NOT use a document.mousemove listener to reveal
-  // the bar.  When the bar is position:fixed and the iframe fills the full width,
-  // mouse events near the right edge are captured by the iframe and never bubble
-  // to document.  Instead, we render a thin transparent hot-zone div (see JSX
-  // below) that sits above the iframe in z-order and handles mouseenter directly.
-
   const toggleFullscreen = () => {
     if (!document.fullscreenElement) {
       document.documentElement.requestFullscreen().catch(() => {});
@@ -127,7 +172,6 @@ export function ServiceColumn({ isPortraitMode, pages, selectedPage, onSelectPag
     }
   };
 
-  // In fullscreen: fixed overlay; collapsed = slide off to the right
   const fullscreenStyle: React.CSSProperties = isFullscreen && !isPortraitMode ? {
     position: "fixed",
     right: 0,
@@ -139,20 +183,17 @@ export function ServiceColumn({ isPortraitMode, pages, selectedPage, onSelectPag
     boxShadow: collapsed ? "none" : "-4px 0 20px rgba(0,0,0,0.18)",
   } : {};
 
+  const hasDivider = pages.length > 0;
+
   return (
     <>
     <div
       onMouseEnter={() => {
         if (isFullscreen && !isPortraitMode) {
-          // Pause auto-hide while the cursor is on the bar
           if (hideTimerRef.current) { clearTimeout(hideTimerRef.current); hideTimerRef.current = null; }
-          // NOTE: we deliberately do NOT call window.focus() here.
-          // Doing so fires a browser focus event mid-hover which can
-          // interrupt a click handler on the buttons below.
         }
       }}
       onMouseLeave={() => {
-        // Restart hide timer when the cursor leaves the bar
         if (isFullscreen && !isPortraitMode) scheduleHide();
       }}
       style={{
@@ -160,13 +201,15 @@ export function ServiceColumn({ isPortraitMode, pages, selectedPage, onSelectPag
         flexDirection: isPortraitMode ? "row" : "column",
         alignItems: "center",
         justifyContent: isPortraitMode ? "space-between" : "flex-start",
-        padding: isPortraitMode ? "0 16px" : "8px 0",
-        gap: isPortraitMode ? 8 : 4,
+        padding: isPortraitMode ? "0 12px" : "8px 0",
+        gap: isPortraitMode ? 6 : 4,
         width: isPortraitMode ? "100%" : 48,
         minWidth: isPortraitMode ? "100%" : 48,
         height: isPortraitMode ? 48 : "100%",
         flexShrink: 0,
         background: "var(--md-surface)",
+        borderLeft: isPortraitMode ? "none" : "1px solid var(--md-outline-var)",
+        borderTop: isPortraitMode ? "1px solid var(--md-outline-var)" : "none",
         zIndex: 20,
         order: 99,
         ...fullscreenStyle,
@@ -182,20 +225,31 @@ export function ServiceColumn({ isPortraitMode, pages, selectedPage, onSelectPag
           colorScheme="secondary"
           isPortrait={isPortraitMode}
         >
-          {pageIcon(page.name, page.icon, page.iconColor)}
+          {pageIcon(page.name, page.icon, page.iconColor, selectedPage?.name === page.name)}
         </ServiceBtn>
       ))}
+
+      {/* Divider between pages and utility buttons */}
+      {!isPortraitMode && hasDivider && (
+        <div style={{
+          width: "calc(100% - 20px)",
+          height: 1,
+          background: "var(--md-outline-var)",
+          flexShrink: 0,
+          margin: "4px auto",
+        }} />
+      )}
 
       {!isPortraitMode && <div style={{ flex: 1 }} />}
 
       {/* Fullscreen toggle */}
       <ServiceBtn active={isFullscreen} tooltip={isFullscreen ? "Exit fullscreen" : "Fullscreen"} onClick={toggleFullscreen} colorScheme="secondary" isPortrait={isPortraitMode}>
         {isFullscreen ? (
-          <svg viewBox="0 0 24 24" width={20} height={20} fill="currentColor">
+          <svg viewBox="0 0 24 24" width={18} height={18} fill="currentColor">
             <path d="M5 16h3v3h2v-5H5v2zm3-8H5v2h5V5H8v3zm6 11h2v-3h3v-2h-5v5zm2-11V5h-2v5h5V8h-3z"/>
           </svg>
         ) : (
-          <svg viewBox="0 0 24 24" width={20} height={20} fill="currentColor">
+          <svg viewBox="0 0 24 24" width={18} height={18} fill="currentColor">
             <path d="M7 14H5v5h5v-2H7v-3zm-2-4h2V7h3V5H5v5zm12 7h-3v2h5v-5h-2v3zM14 5v2h3v3h2V5h-5z"/>
           </svg>
         )}
@@ -205,43 +259,37 @@ export function ServiceColumn({ isPortraitMode, pages, selectedPage, onSelectPag
       {!isFullscreen && pages.length > 0 && (
         <ServiceBtn active={false} tooltip={isExporting ? "Exporting…" : "Export"} onClick={onExportPdf} colorScheme="secondary" isPortrait={isPortraitMode}>
           {isExporting ? (
-            <svg viewBox="0 0 24 24" width={20} height={20} fill="currentColor" style={{ opacity: 0.5 }}>
+            <svg viewBox="0 0 24 24" width={18} height={18} fill="currentColor" style={{ opacity: 0.5 }}>
               <path d="M12 4V1L8 5l4 4V6c3.31 0 6 2.69 6 6s-2.69 6-6 6-6-2.69-6-6H4c0 4.42 3.58 8 8 8s8-3.58 8-8-3.58-8-8-8z"/>
             </svg>
           ) : (
-            <svg viewBox="0 0 24 24" width={20} height={20} fill="currentColor">
+            <svg viewBox="0 0 24 24" width={18} height={18} fill="currentColor">
               <path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-7 14l-5-5h3V9h4v3h3l-5 5z"/>
             </svg>
           )}
         </ServiceBtn>
       )}
 
-      {/* Admin settings button — users with edit or admin access */}
-      {!isFullscreen && canAccessAdmin && <ServiceBtn active={adminOpen} tooltip="Admin settings" onClick={onOpenAdmin} colorScheme="secondary" isPortrait={isPortraitMode}>
-        <svg viewBox="0 0 24 24" width={20} height={20} fill="currentColor">
-          <path d="M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58a.49.49 0 0 0 .12-.61l-1.92-3.32a.488.488 0 0 0-.59-.22l-2.39.96a7.02 7.02 0 0 0-1.62-.94l-.36-2.54a.484.484 0 0 0-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96a.488.488 0 0 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58a.49.49 0 0 0-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z"/>
-        </svg>
-      </ServiceBtn>}
-
-      {/* Disconnect button */}
-      {!isFullscreen && onDisconnect && (
-        <ServiceBtn active={false} tooltip="Disconnect" onClick={onDisconnect} colorScheme="secondary" isPortrait={isPortraitMode}>
-          <svg viewBox="0 0 24 24" width={20} height={20} fill="currentColor">
-            <path d="M17 7l-1.41 1.41L18.17 11H8v2h10.17l-2.58 2.58L17 17l5-5zM4 5h8V3H4c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h8v-2H4V5z"/>
+      {/* Admin settings */}
+      {!isFullscreen && canAccessAdmin && (
+        <ServiceBtn active={adminOpen} tooltip="Settings" onClick={onOpenAdmin} colorScheme="secondary" isPortrait={isPortraitMode}>
+          <svg viewBox="0 0 24 24" width={18} height={18} fill="currentColor">
+            <path d="M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58a.49.49 0 0 0 .12-.61l-1.92-3.32a.488.488 0 0 0-.59-.22l-2.39.96a7.02 7.02 0 0 0-1.62-.94l-.36-2.54a.484.484 0 0 0-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96a.488.488 0 0 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58a.49.49 0 0 0-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z"/>
           </svg>
         </ServiceBtn>
       )}
 
+      {/* Disconnect */}
+      {!isFullscreen && onDisconnect && (
+        <ServiceBtn active={false} tooltip="Disconnect" onClick={onDisconnect} colorScheme="secondary" isPortrait={isPortraitMode}>
+          <svg viewBox="0 0 24 24" width={18} height={18} fill="currentColor">
+            <path d="M17 7l-1.41 1.41L18.17 11H8v2h10.17l-2.58 2.58L17 17l5-5zM4 5h8V3H4c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h8v-2H4V5z"/>
+          </svg>
+        </ServiceBtn>
+      )}
     </div>
 
-    {/* ── Fullscreen hot-zone ─────────────────────────────────────────────────
-        Rendered as a SIBLING of the bar div (not a child) so its position:fixed
-        is always relative to the viewport — a child would inherit the parent's
-        transform:translateX(100%) and slide off-screen with the bar.
-        Width is physically 0 while the bar is visible (not just pointerEvents:none)
-        so it has zero hit-area and can never interfere with bar button clicks.
-        window.focus() here (not on bar onMouseEnter) restores keyboard navigation
-        without racing against click events on bar buttons.                    */}
+    {/* ── Fullscreen hot-zone ─────────────────────────────────────────────── */}
     {isFullscreen && !isPortraitMode && (
       <div
         style={{
