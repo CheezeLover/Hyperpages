@@ -37,6 +37,13 @@ export async function GET(
     return NextResponse.redirect(errorUrl);
   }
 
+  // Secure projects never accept guest tokens — reject even if a code somehow
+  // exists (e.g. created before the project was flagged secure, or a race).
+  if (project.secure) {
+    errorUrl.searchParams.set("error", "forbidden");
+    return NextResponse.redirect(errorUrl);
+  }
+
   // 3. Issue a Caddy-compatible JWT and set it as the access_token cookie
   const authCryptoKey = process.env.AUTH_CRYPTO_KEY;
 

@@ -7,6 +7,7 @@
 
 import { sql, ensureSchema } from "./db";
 import { randomUUID } from "crypto";
+import { deleteInvitationsByProject } from "./invitations";
 
 export interface Project {
   id: string;
@@ -67,6 +68,13 @@ export async function createProject(data: Omit<Project, "id">): Promise<Project>
       ${data.secure ?? false}
     )
   `;
+  // Defensive: purge any stale access codes that might reference this project id.
+  // Under normal operation there are none (the project is brand-new), but this
+  // prevents a hypothetical id-reuse or race condition from granting guest access
+  // to a secure project.
+  if (data.secure) {
+    await sql`DELETE FROM hyperset_access_codes WHERE project_id = ${id}`;
+  }
   invalidateProjectCache();
   return { id, ...data };
 }
@@ -97,6 +105,9 @@ export async function updateProject(
 
 export async function deleteProject(id: string): Promise<void> {
   await ensureSchema();
+  // Clean up invitations before deleting the project (FK cascade handles it too,
+  // but being explicit keeps the intent clear).
+  await deleteInvitationsByProject(id);
   await sql`DELETE FROM hyperset_projects WHERE id = ${id}`;
   invalidateProjectCache();
 }
@@ -104,6 +115,7 @@ export async function deleteProject(id: string): Promise<void> {
 /**
  * Returns true if a user (by email) can see the given project.
  * isAdmin sees all; createdBy always sees it; email in allowedEmails sees it.
+ * Secure projects never grant access via guest JWT tokens.
  */
 export function canUserViewProject(
   project: Project,
@@ -114,5 +126,7 @@ export function canUserViewProject(
   if (isAdmin) return true;
   if (project.createdBy === email) return true;
   if (project.allowedEmails.includes(email)) return true;
+  // Guest JWT tokens (from invite codes) are blocked entirely for secure projects.
+  if (project.secure) return false;
   return guestProjectIds.includes(project.id);
 }

@@ -8,6 +8,10 @@ import {
   canUserViewProject,
   type Project,
 } from "@/lib/project-settings";
+import {
+  createInvitation,
+  generateInviteToken,
+} from "@/lib/invitations";
 import { checkRateLimit } from "@/lib/utils";
 
 const _rateLimitMap = new Map<string, number[]>();
@@ -125,6 +129,32 @@ export async function PATCH(request: NextRequest) {
       updatedEmails.push(project.createdBy);
     }
 
+    // For secure projects: new emails must go through invitation confirmation
+    // rather than being added directly. Only the emails that already exist in
+    // allowedEmails (plus any removals) are applied immediately.
+    let inviteLinks: Array<{ email: string; url: string }> | undefined;
+    if (project.secure && updatedEmails !== undefined) {
+      const currentEmails = new Set(project.allowedEmails.map((e) => e.toLowerCase()));
+      const newEmails = updatedEmails.filter((e) => !currentEmails.has(e.toLowerCase()));
+      // Only keep already-confirmed emails in the direct update
+      const confirmedEmails = updatedEmails.filter((e) => currentEmails.has(e.toLowerCase()));
+      updatedEmails = confirmedEmails;
+
+      if (newEmails.length > 0) {
+        const domain = (process.env.HYPERSET_DOMAIN || "").trim() || "hyperset.internal";
+        inviteLinks = await Promise.all(
+          newEmails.map(async (email) => {
+            const token = generateInviteToken();
+            await createInvitation(id, email, user.email, token);
+            return {
+              email,
+              url: `https://${domain}/api/invite/${token}`,
+            };
+          }),
+        );
+      }
+    }
+
     await updateProject(id, {
       name: body.name?.trim(),
       icon: body.icon !== undefined ? (body.icon.trim() || undefined) : undefined,
@@ -132,7 +162,7 @@ export async function PATCH(request: NextRequest) {
       allowedEmails: updatedEmails,
     });
 
-    return NextResponse.json({ ok: true });
+    return NextResponse.json({ ok: true, ...(inviteLinks ? { inviteLinks } : {}) });
   } catch (e) {
     console.error("[admin/projects] Failed to update project:", e);
     return NextResponse.json({ error: "Failed to update project" }, { status: 500 });

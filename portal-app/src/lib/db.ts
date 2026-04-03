@@ -121,5 +121,57 @@ async function _runMigrations(): Promise<void> {
     ON hyperset_access_codes (project_id)
   `;
 
+  // ── Secure flag immutability ────────────────────────────────────────────────
+  // Prevent the `secure` column from ever being set back to false once true.
+  // This is enforced at the DB level so no application path can bypass it.
+  await sql`
+    CREATE OR REPLACE FUNCTION hyperset_prevent_secure_downgrade()
+    RETURNS TRIGGER LANGUAGE plpgsql AS $$
+    BEGIN
+      IF OLD.secure = TRUE AND NEW.secure = FALSE THEN
+        RAISE EXCEPTION 'secure flag cannot be unset on project %', OLD.id
+          USING ERRCODE = 'check_violation';
+      END IF;
+      RETURN NEW;
+    END;
+    $$
+  `;
+
+  await sql`
+    DROP TRIGGER IF EXISTS hyperset_projects_secure_immutable ON hyperset_projects
+  `;
+
+  await sql`
+    CREATE TRIGGER hyperset_projects_secure_immutable
+    BEFORE UPDATE ON hyperset_projects
+    FOR EACH ROW EXECUTE FUNCTION hyperset_prevent_secure_downgrade()
+  `;
+
+  // ── Project invitations ─────────────────────────────────────────────────────
+  // Signed invitation tokens for secure projects. An email is only added to
+  // allowed_emails after the recipient accepts by visiting the invite URL.
+  await sql`
+    CREATE TABLE IF NOT EXISTS hyperset_project_invitations (
+      id          TEXT        PRIMARY KEY,
+      project_id  TEXT        NOT NULL REFERENCES hyperset_projects(id) ON DELETE CASCADE,
+      email       TEXT        NOT NULL,
+      token_hash  TEXT        NOT NULL UNIQUE,
+      invited_by  TEXT        NOT NULL,
+      created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      expires_at  TIMESTAMPTZ NOT NULL,
+      accepted_at TIMESTAMPTZ
+    )
+  `;
+
+  await sql`
+    CREATE INDEX IF NOT EXISTS hyperset_invitations_project_idx
+    ON hyperset_project_invitations (project_id)
+  `;
+
+  await sql`
+    CREATE INDEX IF NOT EXISTS hyperset_invitations_token_idx
+    ON hyperset_project_invitations (token_hash)
+  `;
+
   console.log("[db] Schema ready");
 }
