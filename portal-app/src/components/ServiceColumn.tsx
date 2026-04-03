@@ -172,16 +172,29 @@ export function ServiceColumn({ isPortraitMode, pages, selectedPage, onSelectPag
     }
   };
 
-  const fullscreenStyle: React.CSSProperties = isFullscreen && !isPortraitMode ? {
-    position: "fixed",
-    right: 0,
-    top: 0,
-    height: "100%",
-    zIndex: 100,
-    transform: collapsed ? "translateX(100%)" : "translateX(0)",
-    transition: "transform 0.25s ease",
-    boxShadow: collapsed ? "none" : "-4px 0 20px rgba(0,0,0,0.18)",
-  } : {};
+  const fullscreenStyle: React.CSSProperties = isFullscreen
+    ? isPortraitMode
+      ? {
+          position: "fixed",
+          bottom: 0,
+          left: 0,
+          width: "100%",
+          zIndex: 100,
+          transform: collapsed ? "translateY(100%)" : "translateY(0)",
+          transition: "transform 0.25s ease",
+          boxShadow: collapsed ? "none" : "0 -4px 20px rgba(0,0,0,0.18)",
+        }
+      : {
+          position: "fixed",
+          right: 0,
+          top: 0,
+          height: "100%",
+          zIndex: 100,
+          transform: collapsed ? "translateX(100%)" : "translateX(0)",
+          transition: "transform 0.25s ease",
+          boxShadow: collapsed ? "none" : "-4px 0 20px rgba(0,0,0,0.18)",
+        }
+    : {};
 
   const hasDivider = pages.length > 0;
 
@@ -243,7 +256,7 @@ export function ServiceColumn({ isPortraitMode, pages, selectedPage, onSelectPag
       {!isPortraitMode && <div style={{ flex: 1 }} />}
 
       {/* Fullscreen toggle */}
-      <ServiceBtn active={isFullscreen} tooltip={isFullscreen ? "Exit fullscreen" : "Fullscreen"} onClick={toggleFullscreen} colorScheme="secondary" isPortrait={isPortraitMode}>
+      <ServiceBtn active={false} tooltip={isFullscreen ? "Exit fullscreen" : "Fullscreen"} onClick={toggleFullscreen} colorScheme="secondary" isPortrait={isPortraitMode}>
         {isFullscreen ? (
           <svg viewBox="0 0 24 24" width={18} height={18} fill="currentColor">
             <path d="M5 16h3v3h2v-5H5v2zm3-8H5v2h5V5H8v3zm6 11h2v-3h3v-2h-5v5zm2-11V5h-2v5h5V8h-3z"/>
@@ -289,7 +302,7 @@ export function ServiceColumn({ isPortraitMode, pages, selectedPage, onSelectPag
       )}
     </div>
 
-    {/* ── Fullscreen hot-zone ─────────────────────────────────────────────── */}
+    {/* ── Fullscreen hot-zone — landscape (right edge) ──────────────────── */}
     {isFullscreen && !isPortraitMode && (
       <div
         style={{
@@ -298,6 +311,22 @@ export function ServiceColumn({ isPortraitMode, pages, selectedPage, onSelectPag
           top: 0,
           width: collapsed ? EDGE_TRIGGER_PX : 0,
           height: "100%",
+          zIndex: 99,
+          overflow: "hidden",
+        }}
+        onMouseEnter={() => { showBar(); window.focus(); }}
+      />
+    )}
+
+    {/* ── Fullscreen hot-zone — portrait (bottom edge) ───────────────────── */}
+    {isFullscreen && isPortraitMode && (
+      <div
+        style={{
+          position: "fixed",
+          bottom: 0,
+          left: 0,
+          width: "100%",
+          height: collapsed ? EDGE_TRIGGER_PX : 0,
           zIndex: 99,
           overflow: "hidden",
         }}
