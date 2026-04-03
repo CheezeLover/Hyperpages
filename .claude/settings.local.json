@@ -18,7 +18,8 @@
       "Bash(grep -r export.*html 'C:\\\\Users\\\\VincentCROISE\\\\OneDrive - Ginesis Finance\\\\Documents\\\\GitHub\\\\Hyperset\\\\Hyperset\\\\Hyperpages\\\\portal-app\\\\src' --include=*.ts --include=*.tsx)",
       "Bash(grep -r secure '/c/Users/VincentCROISE/OneDrive - Ginesis Finance/Documents/GitHub/Hyperpages' --include=*.md --include=*.json --include=*.py)",
       "Bash(npx tsc:*)",
-      "Bash(node_modules/.bin/tsc --noEmit)"
+      "Bash(node_modules/.bin/tsc --noEmit)",
+      "Bash(grep -r iframe 'C:\\\\Users\\\\VincentCROISE\\\\OneDrive - Ginesis Finance\\\\Documents\\\\GitHub\\\\Hyperpages\\\\portal-app\\\\src' --include=*.tsx --include=*.ts)"
     ]
   }
 }

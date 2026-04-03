@@ -37,6 +37,10 @@ function resolvePageDir(name: string): string {
   return path.join(PAGES_DIR, ...name.split("/"));
 }
 
+function isValidPageName(name: string): boolean {
+  return name.split("/").every((seg) => /^[a-zA-Z0-9_-]+$/.test(seg));
+}
+
 function scanPagesDir(): { name: string; hasBackend: boolean }[] {
   const pages: { name: string; hasBackend: boolean }[] = [];
   try {
@@ -185,6 +189,7 @@ export async function PUT(request: NextRequest) {
     const backendFile = formData.get("backend") as File | null;
 
     if (!name) return NextResponse.json({ error: "Page name is required" }, { status: 400 });
+    if (!isValidPageName(name)) return NextResponse.json({ error: "Invalid page name" }, { status: 400 });
 
     const pageDirPath = resolvePageDir(name);
     if (!fs.existsSync(path.join(pageDirPath, "index.html"))) {
@@ -256,6 +261,7 @@ export async function PATCH(request: NextRequest) {
     };
 
     if (!name) return NextResponse.json({ error: "Page name is required" }, { status: 400 });
+    if (!isValidPageName(name)) return NextResponse.json({ error: "Invalid page name" }, { status: 400 });
 
     if (!fs.existsSync(path.join(resolvePageDir(name), "index.html"))) {
       return NextResponse.json({ error: `Page "${name}" not found` }, { status: 404 });
@@ -326,6 +332,7 @@ export async function DELETE(request: NextRequest) {
     const { name } = body as { name: string };
 
     if (!name) return NextResponse.json({ error: "Page name is required" }, { status: 400 });
+    if (!isValidPageName(name)) return NextResponse.json({ error: "Invalid page name" }, { status: 400 });
 
     const pageDirPath = resolvePageDir(name);
     if (!fs.existsSync(path.join(pageDirPath, "index.html"))) {
