@@ -4,6 +4,7 @@ import React from "react";
 
 interface Page {
   name: string;
+  displayName: string;
   icon?: string;
   iconColor?: string;
 }
@@ -231,12 +232,12 @@ export function ServiceColumn({ isPortraitMode, pages, selectedPage, onSelectPag
         <ServiceBtn
           key={page.name}
           active={selectedPage?.name === page.name}
-          tooltip={page.name.charAt(0).toUpperCase() + page.name.slice(1)}
+          tooltip={page.displayName.charAt(0).toUpperCase() + page.displayName.slice(1)}
           onClick={() => onSelectPage(page)}
           colorScheme="secondary"
           isPortrait={isPortraitMode}
         >
-          {pageIcon(page.name, page.icon, page.iconColor, selectedPage?.name === page.name)}
+          {pageIcon(page.displayName, page.icon, page.iconColor, selectedPage?.name === page.name)}
         </ServiceBtn>
       ))}
 

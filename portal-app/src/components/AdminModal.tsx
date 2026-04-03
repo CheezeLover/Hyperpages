@@ -53,7 +53,7 @@ export interface AdminModalProps {
 }
 
 interface PageInfo {
-  name: string; hasBackend: boolean; active?: boolean;
+  name: string; displayName?: string; hasBackend: boolean; active?: boolean;
   projectId?: string; order?: number; icon?: string; iconColor?: string; createdBy?: string;
 }
 interface ProjectInfo {
@@ -96,7 +96,8 @@ function Badge({ children, color = "default" }: { children: React.ReactNode; col
 function PageInlineEditor({ page, onClose, onSaved, onFilesReplaced }: {
   page: PageInfo; onClose: () => void; onSaved: () => void; onFilesReplaced?: () => void;
 }) {
-  const [editName, setEditName] = useState(page.name);
+  const pageDisplayName = page.displayName ?? page.name.split("/").pop() ?? page.name;
+  const [editName, setEditName] = useState(pageDisplayName);
   const [editIcon, setEditIcon] = useState(page.icon || "");
   const [editIconColor, setEditIconColor] = useState(page.iconColor || "");
   const [editHtmlFile, setEditHtmlFile] = useState<File | null>(null);
@@ -121,7 +122,7 @@ function PageInlineEditor({ page, onClose, onSaved, onFilesReplaced }: {
         if (!res.ok) throw new Error(((await res.json()) as { error?: string }).error ?? "File update failed");
         onFilesReplaced?.();
       }
-      const isRename = trimmedName !== page.name;
+      const isRename = trimmedName !== pageDisplayName;
       const res = await fetch("/api/admin/pages", {
         method: "PATCH", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -144,13 +145,13 @@ function PageInlineEditor({ page, onClose, onSaved, onFilesReplaced }: {
       <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
         <div>
           <label style={label}>Page Name</label>
-          <input type="text" value={editName} onChange={(e) => setEditName(e.target.value)} placeholder={page.name} style={input} />
+          <input type="text" value={editName} onChange={(e) => setEditName(e.target.value)} placeholder={pageDisplayName} style={input} />
           <p style={{ fontSize: 11, opacity: 0.45, color: "var(--md-on-surface)", margin: "4px 0 0" }}>Letters, numbers, hyphens, underscores</p>
         </div>
         <div style={{ display: "flex", gap: 10 }}>
           <div style={{ flex: 1 }}>
             <label style={label}>Icon</label>
-            <input type="text" value={editIcon} onChange={(e) => setEditIcon(e.target.value.slice(0, 2))} placeholder={page.name.charAt(0).toUpperCase()} style={input} />
+            <input type="text" value={editIcon} onChange={(e) => setEditIcon(e.target.value.slice(0, 2))} placeholder={pageDisplayName.charAt(0).toUpperCase()} style={input} />
           </div>
           <div style={{ flex: 3 }}>
             <label style={label}>Icon Color</label>
@@ -710,12 +711,12 @@ function ProjectsTab({ userEmail, isAdmin, onPageFilesChanged }: { userEmail: st
                               }}>
                                 {/* Page icon */}
                                 <div style={{ width: 26, height: 26, borderRadius: 6, background: page.iconColor || (isActive ? "var(--md-primary)" : "var(--md-surface-cont)"), display: "flex", alignItems: "center", justifyContent: "center", color: isActive ? "white" : "var(--md-on-surface)", opacity: isActive ? 1 : 0.4, fontSize: 11, fontWeight: 700, flexShrink: 0 }}>
-                                  {page.icon || page.name.charAt(0).toUpperCase()}
+                                  {page.icon || (page.displayName ?? page.name.split("/").pop() ?? page.name).charAt(0).toUpperCase()}
                                 </div>
 
                                 {/* Page name */}
                                 <span style={{ flex: 1, fontSize: 12, fontWeight: 500, color: "var(--md-on-surface)", opacity: isActive ? 0.85 : 0.4 }}>
-                                  {page.name}
+                                  {page.displayName ?? page.name.split("/").pop() ?? page.name}
                                   {page.hasBackend && <span style={{ marginLeft: 6, fontSize: 10, opacity: 0.4, fontFamily: "monospace" }}>py</span>}
                                 </span>
 

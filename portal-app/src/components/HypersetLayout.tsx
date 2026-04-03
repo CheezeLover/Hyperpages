@@ -6,12 +6,14 @@ import { AdminModal } from "./AdminModal";
 
 interface Page {
   name: string;
+  displayName: string;
   icon?: string;
   iconColor?: string;
 }
 
 interface PageApiItem {
   name: string;
+  displayName?: string;
   active?: boolean;
   projectId?: string;
   order?: number;
@@ -87,7 +89,7 @@ export function HypersetLayout({ pagesUrl, isAdmin, userEmail, canAccessAdmin, i
     const filtered = allPages
       .filter((p) => p.projectId === selectedProjectId && p.active !== false)
       .sort((a, b) => (a.order ?? 0) - (b.order ?? 0))
-      .map((p) => ({ name: p.name, icon: p.icon, iconColor: p.iconColor }));
+      .map((p) => ({ name: p.name, displayName: p.displayName ?? p.name.split("/").pop() ?? p.name, icon: p.icon, iconColor: p.iconColor }));
 
     // Avoid re-renders when the visible list hasn't changed
     setPages((prev) => {
@@ -285,7 +287,7 @@ export function HypersetLayout({ pagesUrl, isAdmin, userEmail, canAccessAdmin, i
             <iframe
               key={`${page.name}-${iframeKey}`}
               src={`${pagesUrl}/${page.name}${iframeKey > 0 ? `?v=${iframeKey}` : ""}`}
-              title={page.name}
+              title={page.displayName}
               style={{
                 position: "absolute",
                 inset: 0,

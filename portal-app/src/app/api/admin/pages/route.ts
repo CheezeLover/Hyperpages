@@ -29,17 +29,36 @@ async function canManagePage(pageName: string, user: HypersetUser): Promise<bool
   return project.createdBy === user.email || project.allowedEmails.includes(user.email);
 }
 
+/** Resolve the filesystem path for a page name.
+ *  Legacy flat pages: "pageName"           → PAGES_DIR/pageName
+ *  Project-scoped:    "projectId/pageName" → PAGES_DIR/projectId/pageName
+ */
+function resolvePageDir(name: string): string {
+  return path.join(PAGES_DIR, ...name.split("/"));
+}
+
 function scanPagesDir(): { name: string; hasBackend: boolean }[] {
   const pages: { name: string; hasBackend: boolean }[] = [];
   try {
     if (!fs.existsSync(PAGES_DIR)) return pages;
     const entries = fs.readdirSync(PAGES_DIR, { withFileTypes: true });
     for (const entry of entries) {
-      if (entry.isDirectory() && !entry.name.startsWith(".")) {
-        const indexPath = path.join(PAGES_DIR, entry.name, "index.html");
-        const backendPath = path.join(PAGES_DIR, entry.name, "backend.py");
-        if (fs.existsSync(indexPath)) {
-          pages.push({ name: entry.name, hasBackend: fs.existsSync(backendPath) });
+      if (!entry.isDirectory() || entry.name.startsWith(".")) continue;
+      const topDir = path.join(PAGES_DIR, entry.name);
+      if (fs.existsSync(path.join(topDir, "index.html"))) {
+        // Legacy flat page
+        pages.push({ name: entry.name, hasBackend: fs.existsSync(path.join(topDir, "backend.py")) });
+      } else {
+        // Project subdirectory — scan pages within
+        for (const sub of fs.readdirSync(topDir, { withFileTypes: true })) {
+          if (!sub.isDirectory() || sub.name.startsWith(".")) continue;
+          const subDir = path.join(topDir, sub.name);
+          if (fs.existsSync(path.join(subDir, "index.html"))) {
+            pages.push({
+              name: `${entry.name}/${sub.name}`,
+              hasBackend: fs.existsSync(path.join(subDir, "backend.py")),
+            });
+          }
         }
       }
     }
@@ -64,6 +83,7 @@ export async function GET(request: NextRequest) {
 
   const pagesWithMeta = pages.map((p) => ({
     name: p.name,
+    displayName: p.name.split("/").pop() ?? p.name,
     hasBackend: p.hasBackend,
     active: settings[p.name]?.active ?? true,
     projectId: settings[p.name]?.projectId,
@@ -114,23 +134,28 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Forbidden: you must be a member of the project to add pages" }, { status: 403 });
     }
 
-    const pageDir = path.join(PAGES_DIR, name);
-    if (fs.existsSync(pageDir)) {
-      return NextResponse.json({ error: `Page "${name}" already exists` }, { status: 400 });
+    // Store pages under a project subdirectory so the same display name can be
+    // reused across different projects.  The full internal name (also the URL path)
+    // is "{projectId}/{displayName}".
+    const fullName = `${projectId}/${name}`;
+    const pageDirPath = resolvePageDir(fullName);
+    if (fs.existsSync(pageDirPath)) {
+      return NextResponse.json({ error: `Page "${name}" already exists in this project` }, { status: 400 });
     }
 
-    fs.mkdirSync(pageDir, { recursive: true });
-    fs.writeFileSync(path.join(pageDir, "index.html"), Buffer.from(await htmlFile.arrayBuffer()));
+    fs.mkdirSync(pageDirPath, { recursive: true });
+    fs.writeFileSync(path.join(pageDirPath, "index.html"), Buffer.from(await htmlFile.arrayBuffer()));
     if (backendFile && backendFile.size > 0) {
-      fs.writeFileSync(path.join(pageDir, "backend.py"), Buffer.from(await backendFile.arrayBuffer()));
+      fs.writeFileSync(path.join(pageDirPath, "backend.py"), Buffer.from(await backendFile.arrayBuffer()));
     }
 
     const creatorEmail = user.email;
-    await setPageSettings(name, { active: true, projectId, order: 0, icon, iconColor, createdBy: creatorEmail });
+    const hasBackend = !!backendFile && backendFile.size > 0;
+    await setPageSettings(fullName, { active: true, projectId, order: 0, icon, iconColor, createdBy: creatorEmail });
 
     return NextResponse.json({
       ok: true,
-      page: { name, hasBackend: !!backendFile && backendFile.size > 0, active: true, projectId, order: 0, icon, iconColor, createdBy: creatorEmail }
+      page: { name: fullName, displayName: name, hasBackend, active: true, projectId, order: 0, icon, iconColor, createdBy: creatorEmail }
     });
   } catch (e) {
     console.error("[admin/pages] Failed to upload page:", e);
@@ -161,8 +186,8 @@ export async function PUT(request: NextRequest) {
 
     if (!name) return NextResponse.json({ error: "Page name is required" }, { status: 400 });
 
-    const pageDir = path.join(PAGES_DIR, name);
-    if (!fs.existsSync(path.join(pageDir, "index.html"))) {
+    const pageDirPath = resolvePageDir(name);
+    if (!fs.existsSync(path.join(pageDirPath, "index.html"))) {
       return NextResponse.json({ error: `Page "${name}" not found` }, { status: 404 });
     }
     if (!await canManagePage(name, user)) {
@@ -170,16 +195,16 @@ export async function PUT(request: NextRequest) {
     }
 
     if (htmlFile && htmlFile.size > 0) {
-      fs.writeFileSync(path.join(pageDir, "index.html"), Buffer.from(await htmlFile.arrayBuffer()));
+      fs.writeFileSync(path.join(pageDirPath, "index.html"), Buffer.from(await htmlFile.arrayBuffer()));
     }
     if (backendFile && backendFile.size > 0) {
-      fs.writeFileSync(path.join(pageDir, "backend.py"), Buffer.from(await backendFile.arrayBuffer()));
+      fs.writeFileSync(path.join(pageDirPath, "backend.py"), Buffer.from(await backendFile.arrayBuffer()));
     } else if (formData.get("removeBackend") === "true") {
-      const backendPath = path.join(pageDir, "backend.py");
+      const backendPath = path.join(pageDirPath, "backend.py");
       if (fs.existsSync(backendPath)) fs.unlinkSync(backendPath);
     }
 
-    return NextResponse.json({ ok: true, hasBackend: fs.existsSync(path.join(pageDir, "backend.py")) });
+    return NextResponse.json({ ok: true, hasBackend: fs.existsSync(path.join(pageDirPath, "backend.py")) });
   } catch (e) {
     console.error("[admin/pages] Failed to update page files:", e);
     return NextResponse.json({ error: "Failed to update page files" }, { status: 500 });
@@ -232,7 +257,7 @@ export async function PATCH(request: NextRequest) {
 
     if (!name) return NextResponse.json({ error: "Page name is required" }, { status: 400 });
 
-    if (!fs.existsSync(path.join(PAGES_DIR, name, "index.html"))) {
+    if (!fs.existsSync(path.join(resolvePageDir(name), "index.html"))) {
       return NextResponse.json({ error: `Page "${name}" not found` }, { status: 404 });
     }
     if (!await canManagePage(name, user)) {
@@ -240,19 +265,26 @@ export async function PATCH(request: NextRequest) {
     }
 
     // ── Rename: move filesystem directory + migrate settings ─────────────────
-    const targetName = (newName?.trim() && newName.trim() !== name) ? newName.trim() : null;
+    // newName is always the display name (last segment only).
+    // The full name preserves the project prefix if present.
+    const displayNewName = newName?.trim();
+    const currentDisplayName = name.split("/").pop()!;
+    const targetName = (displayNewName && displayNewName !== currentDisplayName) ? displayNewName : null;
+    let targetFullName: string | null = null;
     if (targetName !== null) {
       if (!/^[a-zA-Z0-9_-]+$/.test(targetName)) {
         return NextResponse.json({ error: "Page name must contain only letters, numbers, underscores and hyphens" }, { status: 400 });
       }
-      const newDir = path.join(PAGES_DIR, targetName);
-      if (fs.existsSync(newDir)) {
+      const prefix = name.includes("/") ? name.split("/").slice(0, -1).join("/") + "/" : "";
+      targetFullName = prefix + targetName;
+      const newDirPath = resolvePageDir(targetFullName);
+      if (fs.existsSync(newDirPath)) {
         return NextResponse.json({ error: `A page named "${targetName}" already exists` }, { status: 409 });
       }
-      fs.renameSync(path.join(PAGES_DIR, name), newDir);
+      fs.renameSync(resolvePageDir(name), newDirPath);
     }
 
-    const finalName = targetName ?? name;
+    const finalName = targetFullName ?? name;
     const all = await getAllPageSettings();
     const current = all[name] ?? {};
     const updatedSettings = {
@@ -294,15 +326,15 @@ export async function DELETE(request: NextRequest) {
 
     if (!name) return NextResponse.json({ error: "Page name is required" }, { status: 400 });
 
-    const pageDir = path.join(PAGES_DIR, name);
-    if (!fs.existsSync(path.join(pageDir, "index.html"))) {
+    const pageDirPath = resolvePageDir(name);
+    if (!fs.existsSync(path.join(pageDirPath, "index.html"))) {
       return NextResponse.json({ error: `Page "${name}" not found` }, { status: 404 });
     }
     if (!await canManagePage(name, user)) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
-    fs.rmSync(pageDir, { recursive: true, force: true });
+    fs.rmSync(pageDirPath, { recursive: true, force: true });
     await deletePageSettings(name);
     return NextResponse.json({ ok: true });
   } catch (e) {

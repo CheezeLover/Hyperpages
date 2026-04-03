@@ -71,7 +71,14 @@ _registry_lock = threading.Lock()
 
 def _load_page(page_dir: Path) -> None:
     """Register a single page directory. Mount its backend router if present."""
-    name = page_dir.name
+    # Name is relative to PAGES_DIR: "pageName" for legacy flat pages,
+    # "projectId/pageName" for project-scoped pages.
+    try:
+        rel = page_dir.relative_to(PAGES_DIR)
+    except ValueError:
+        log.warning("Page dir %s is not under PAGES_DIR %s", page_dir, PAGES_DIR)
+        return
+    name = str(rel).replace("\\", "/")  # normalise on Windows
     index = page_dir / "index.html"
     backend_path = page_dir / "backend.py"
 
@@ -103,7 +110,7 @@ def _load_page(page_dir: Path) -> None:
             log.exception("Failed to load backend for page '%s'", name)
 
     with _registry_lock:
-        _registry[name] = {"has_backend": has_backend}
+        _registry[name] = {"has_backend": has_backend, "dir": page_dir}
 
     log.info("Registered page: %s  (backend=%s)", name, has_backend)
 
@@ -113,8 +120,9 @@ def _unload_page(name: str) -> None:
     with _registry_lock:
         _registry.pop(name, None)
 
-    # Remove the isolated backend module from sys.modules
-    mod_key = f"pages.{name}.backend"
+    # Remove the isolated backend module from sys.modules.
+    # Sanitise name: "projectId/pageName" → "projectId.pageName" for module key.
+    mod_key = f"pages.{name.replace('/', '.')}.backend"
     sys.modules.pop(mod_key, None)
 
     # FastAPI does not support dynamic route removal, so we log a notice.
@@ -124,13 +132,25 @@ def _unload_page(name: str) -> None:
 
 
 def _scan_pages() -> None:
-    """Initial full scan of PAGES_DIR."""
+    """Initial full scan of PAGES_DIR.
+    Handles two layouts:
+      - Legacy flat:        PAGES_DIR/{pageName}/index.html
+      - Project-scoped:     PAGES_DIR/{projectId}/{pageName}/index.html
+    """
     if not PAGES_DIR.is_dir():
         log.warning("Pages directory %s does not exist yet", PAGES_DIR)
         return
     for entry in sorted(PAGES_DIR.iterdir()):
-        if entry.is_dir() and not entry.name.startswith("."):
+        if not entry.is_dir() or entry.name.startswith("."):
+            continue
+        if (entry / "index.html").is_file():
+            # Legacy flat page
             _load_page(entry)
+        else:
+            # Project subdirectory — scan pages within
+            for sub in sorted(entry.iterdir()):
+                if sub.is_dir() and not sub.name.startswith("."):
+                    _load_page(sub)
 
 
 # ── Watchdog file-system watcher ───────────────────────────────────────────────
@@ -145,13 +165,22 @@ class _PagesEventHandler(FileSystemEventHandler):
         except ValueError:
             return None
         parts = rel.parts
-        return parts[0] if parts else None
+        if not parts:
+            return None
+        top_dir = PAGES_DIR / parts[0]
+        if (top_dir / "index.html").is_file():
+            # Legacy flat page
+            return parts[0]
+        elif len(parts) >= 2:
+            # Project-scoped page: name = "projectId/pageName"
+            return f"{parts[0]}/{parts[1]}"
+        return parts[0]
 
     def on_created(self, event):
         name = self._page_name_from_path(event.src_path)
         if not name:
             return
-        page_dir = PAGES_DIR / name
+        page_dir = PAGES_DIR / Path(name)
         if page_dir.is_dir():
             log.info("Detected new page directory: %s", name)
             _load_page(page_dir)
@@ -160,7 +189,7 @@ class _PagesEventHandler(FileSystemEventHandler):
         name = self._page_name_from_path(event.src_path)
         if not name:
             return
-        page_dir = PAGES_DIR / name
+        page_dir = PAGES_DIR / Path(name)
         if page_dir.is_dir() and (page_dir / "index.html").is_file():
             log.info("Detected change in page: %s — reloading", name)
             _unload_page(name)
@@ -170,8 +199,7 @@ class _PagesEventHandler(FileSystemEventHandler):
         name = self._page_name_from_path(event.src_path)
         if not name:
             return
-        page_dir = PAGES_DIR / name
-        # If the directory itself was deleted
+        page_dir = PAGES_DIR / Path(name)
         if not page_dir.exists():
             log.info("Page directory removed: %s", name)
             _unload_page(name)
@@ -221,43 +249,45 @@ _ARROW_RELAY = (
 )
 
 
-@app.get("/{page_name}", include_in_schema=False)
-async def serve_page(page_name: str):
-    """Serve the index.html for a registered page.
-
-    A tiny postMessage relay script is injected so that arrow-key presses inside
-    the (cross-origin) iframe are forwarded to the portal for page navigation,
-    even after the iframe has captured keyboard focus.
-    """
+def _serve(name: str) -> HTMLResponse | JSONResponse:
+    """Core serve logic — shared by both route handlers."""
     with _registry_lock:
-        known = page_name in _registry
+        info = _registry.get(name)
 
-    # Watchdog lag: directory was just created via rename but registry not yet
-    # updated — check disk and register on demand.
-    if not known:
-        page_dir = PAGES_DIR / page_name
+    # Watchdog lag: try to load on demand
+    if info is None:
+        page_dir = PAGES_DIR / Path(name)
         if page_dir.is_dir() and (page_dir / "index.html").is_file():
             _load_page(page_dir)
-            known = True
+            with _registry_lock:
+                info = _registry.get(name)
 
-    if not known:
+    if info is None:
         return JSONResponse({"detail": "Page not found"}, status_code=404)
 
-    index = PAGES_DIR / page_name / "index.html"
-
-    # Watchdog lag: page still in registry but file gone (e.g. mid-rename).
-    # Return a clean 404 instead of letting read_text raise a 500.
+    index = info["dir"] / "index.html"
     if not index.is_file():
-        _unload_page(page_name)
+        _unload_page(name)
         return JSONResponse({"detail": "Page not found"}, status_code=404)
 
     html = index.read_text(encoding="utf-8")
-    # Inject before </body> when present, otherwise append
     if "</body>" in html:
         html = html.replace("</body>", _ARROW_RELAY + "</body>", 1)
     else:
         html += _ARROW_RELAY
     return HTMLResponse(content=html)
+
+
+@app.get("/{page_name}", include_in_schema=False)
+async def serve_flat_page(page_name: str):
+    """Serve a legacy flat page at /{page_name}."""
+    return _serve(page_name)
+
+
+@app.get("/{project_id}/{page_name}", include_in_schema=False)
+async def serve_project_page(project_id: str, page_name: str):
+    """Serve a project-scoped page at /{project_id}/{page_name}."""
+    return _serve(f"{project_id}/{page_name}")
 
 
 if __name__ == "__main__":
