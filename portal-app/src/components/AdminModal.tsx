@@ -142,15 +142,13 @@ function PageInlineEditor({ page, onClose, onSaved, onFilesReplaced }: {
             <input type="text" value={editIconColor} onChange={(e) => setEditIconColor(e.target.value)} placeholder="#1a73e8" style={input} />
           </div>
         </div>
-        <div style={{ display: "flex", gap: 10 }}>
-          <div style={{ flex: 1, minWidth: 0 }}>
-            <label style={label}>Replace HTML</label>
-            <input type="file" accept=".html" onChange={(e) => setEditHtmlFile(e.target.files?.[0] ?? null)} style={{ fontSize: 12, color: "var(--md-on-surface)", maxWidth: "100%" }} />
-          </div>
-          <div style={{ flex: 1, minWidth: 0 }}>
-            <label style={label}>Replace Backend</label>
-            <input type="file" accept=".py" onChange={(e) => setEditBackendFile(e.target.files?.[0] ?? null)} style={{ fontSize: 12, color: "var(--md-on-surface)", maxWidth: "100%" }} />
-          </div>
+        <div>
+          <label style={label}>Replace HTML</label>
+          <input type="file" accept=".html" onChange={(e) => setEditHtmlFile(e.target.files?.[0] ?? null)} style={{ fontSize: 12, color: "var(--md-on-surface)" }} />
+        </div>
+        <div>
+          <label style={label}>Replace Backend</label>
+          <input type="file" accept=".py" onChange={(e) => setEditBackendFile(e.target.files?.[0] ?? null)} style={{ fontSize: 12, color: "var(--md-on-surface)" }} />
         </div>
         {page.hasBackend && (
           <label style={{ display: "flex", alignItems: "center", gap: 8, cursor: "pointer" }}>
