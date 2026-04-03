@@ -231,9 +231,26 @@ async def serve_page(page_name: str):
     """
     with _registry_lock:
         known = page_name in _registry
+
+    # Watchdog lag: directory was just created via rename but registry not yet
+    # updated — check disk and register on demand.
+    if not known:
+        page_dir = PAGES_DIR / page_name
+        if page_dir.is_dir() and (page_dir / "index.html").is_file():
+            _load_page(page_dir)
+            known = True
+
     if not known:
         return JSONResponse({"detail": "Page not found"}, status_code=404)
+
     index = PAGES_DIR / page_name / "index.html"
+
+    # Watchdog lag: page still in registry but file gone (e.g. mid-rename).
+    # Return a clean 404 instead of letting read_text raise a 500.
+    if not index.is_file():
+        _unload_page(page_name)
+        return JSONResponse({"detail": "Page not found"}, status_code=404)
+
     html = index.read_text(encoding="utf-8")
     # Inject before </body> when present, otherwise append
     if "</body>" in html:

@@ -132,9 +132,6 @@ function PageInlineEditor({ page, onClose, onSaved, onFilesReplaced }: {
         }),
       });
       if (!res.ok) throw new Error(((await res.json()) as { error?: string }).error ?? "Update failed");
-      // If the page was renamed the old iframe URL is stale — bump the key so
-      // HypersetLayout tears it down and mounts a fresh one at the new URL.
-      if (isRename) onFilesReplaced?.();
       onSaved(); onClose();
     } catch (e) {
       setError(e instanceof Error ? e.message : "Update failed");
