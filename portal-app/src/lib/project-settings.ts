@@ -7,7 +7,6 @@
 
 import { sql, ensureSchema } from "./db";
 import { randomUUID } from "crypto";
-import { deleteInvitationsByProject } from "./invitations";
 
 export interface Project {
   id: string;
@@ -105,9 +104,6 @@ export async function updateProject(
 
 export async function deleteProject(id: string): Promise<void> {
   await ensureSchema();
-  // Clean up invitations before deleting the project (FK cascade handles it too,
-  // but being explicit keeps the intent clear).
-  await deleteInvitationsByProject(id);
   await sql`DELETE FROM hyperset_projects WHERE id = ${id}`;
   invalidateProjectCache();
 }

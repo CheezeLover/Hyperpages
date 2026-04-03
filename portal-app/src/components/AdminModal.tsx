@@ -272,14 +272,6 @@ function ProjectsTab({ userEmail, isAdmin, onPageFilesChanged }: { userEmail: st
   const copyTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [deletingCode, setDeletingCode] = useState<string | null>(null);
 
-  type PendingInvitation = { id: string; email: string; invitedBy: string; expiresAt: string };
-  type InviteLink = { email: string; url: string };
-  const [pendingInvitations, setPendingInvitations] = useState<Record<string, PendingInvitation[]>>({});
-  const [newInviteLinks, setNewInviteLinks] = useState<{ projectId: string; links: InviteLink[] } | null>(null);
-  const [copiedInvite, setCopiedInvite] = useState<string | null>(null);
-  const inviteCopyTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const [revokingInvitation, setRevokingInvitation] = useState<string | null>(null);
-
   const [editingPage, setEditingPage] = useState<string | null>(null); // page name
   const [uploadForProject, setUploadForProject] = useState<string | null>(null);
   const [deletingPage, setDeletingPage] = useState<string | null>(null);
@@ -329,18 +321,11 @@ function ProjectsTab({ userEmail, isAdmin, onPageFilesChanged }: { userEmail: st
     setEditingProject(p.id);
     setEditName(p.name); setEditIcon(p.icon || ""); setEditIconColor(p.iconColor || "");
     setEditEmails(p.allowedEmails.filter((e) => e !== p.createdBy).join(", "));
-    setNewCode(null); setCopiedType(null); setNewInviteLinks(null);
+    setNewCode(null); setCopiedType(null);
     fetch(`/api/admin/codes?projectId=${p.id}`, { credentials: "include" })
       .then((r) => r.ok ? r.json() : { codes: [] })
       .then((data: { codes: CodeRecord[] }) => setCodes((prev) => ({ ...prev, [p.id]: data.codes })))
       .catch(() => {});
-    if (p.secure) {
-      fetch(`/api/admin/invitations?projectId=${p.id}`, { credentials: "include" })
-        .then((r) => r.ok ? r.json() : { invitations: [] })
-        .then((data: { invitations: PendingInvitation[] }) =>
-          setPendingInvitations((prev) => ({ ...prev, [p.id]: data.invitations })))
-        .catch(() => {});
-    }
   };
 
   const handleGenerateCode = async (projectId: string) => {
@@ -391,47 +376,10 @@ function ProjectsTab({ userEmail, isAdmin, onPageFilesChanged }: { userEmail: st
         body: JSON.stringify({ id, name: editName.trim(), icon: editIcon.trim() || undefined, iconColor: editIconColor.trim() || undefined, allowedEmails: emails }),
       });
       if (!res.ok) throw new Error(((await res.json()) as { error?: string }).error ?? "Update failed");
-      const data = await res.json() as { ok: boolean; inviteLinks?: InviteLink[] };
-      if (data.inviteLinks && data.inviteLinks.length > 0) {
-        setNewInviteLinks({ projectId: id, links: data.inviteLinks });
-        // Refresh pending invitations list without closing the editor
-        fetch(`/api/admin/invitations?projectId=${id}`, { credentials: "include" })
-          .then((r) => r.ok ? r.json() : { invitations: [] })
-          .then((d: { invitations: PendingInvitation[] }) =>
-            setPendingInvitations((prev) => ({ ...prev, [id]: d.invitations })))
-          .catch(() => {});
-      } else {
-        setEditingProject(null);
-      }
-      loadData(true);
+      setEditingProject(null); loadData(true);
     } catch (e) { setError(e instanceof Error ? e.message : "Update failed"); }
     finally { setSavingProject(false); }
   };
-
-  const handleRevokeInvitation = async (invId: string, projectId: string) => {
-    setRevokingInvitation(invId);
-    try {
-      const res = await fetch("/api/admin/invitations", {
-        method: "DELETE", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ id: invId, projectId }),
-      });
-      if (!res.ok) throw new Error("Failed");
-      setPendingInvitations((prev) => ({
-        ...prev,
-        [projectId]: (prev[projectId] ?? []).filter((i) => i.id !== invId),
-      }));
-    } catch { setError("Failed to revoke invitation"); }
-    finally { setRevokingInvitation(null); }
-  };
-
-  const handleCopyInvite = (url: string) => {
-    navigator.clipboard.writeText(url).then(() => {
-      if (inviteCopyTimeoutRef.current) clearTimeout(inviteCopyTimeoutRef.current);
-      setCopiedInvite(url);
-      inviteCopyTimeoutRef.current = setTimeout(() => setCopiedInvite(null), 2000);
-    });
-  };
-  useEffect(() => () => { if (inviteCopyTimeoutRef.current) clearTimeout(inviteCopyTimeoutRef.current); }, []);
 
   const handleDeleteProject = async (id: string) => {
     setDeletingProjectLoading(true); setError("");
@@ -598,73 +546,20 @@ function ProjectsTab({ userEmail, isAdmin, onPageFilesChanged }: { userEmail: st
                       <textarea value={editEmails} onChange={(e) => setEditEmails(e.target.value)} placeholder="email1@ex.com, email2@ex.com" rows={2} style={{ ...input, resize: "vertical", fontFamily: "inherit" }} />
                       {project.secure && (
                         <p style={{ fontSize: 11, opacity: 0.45, color: "var(--md-on-surface)", margin: "4px 0 0" }}>
-                          New emails will receive a confirmation link before being granted access.
+                          Only emails from the same domain as the project creator are allowed.
                         </p>
                       )}
                     </div>
 
-                    {/* Secure project: invite links banner (shown once after save) */}
-                    {project.secure && newInviteLinks?.projectId === project.id && (
-                      <div style={{ borderTop: "1px solid var(--md-outline-var)", paddingTop: 16 }}>
-                        <div style={{ background: "rgba(var(--md-primary-rgb,103,80,164),0.07)", border: "1px solid rgba(var(--md-primary-rgb,103,80,164),0.25)", borderRadius: 10, padding: "12px 14px", marginBottom: 4 }}>
-                          <div style={{ fontSize: 11, color: "var(--md-primary)", fontWeight: 700, letterSpacing: "0.04em", textTransform: "uppercase", marginBottom: 10 }}>
-                            Invitation links — copy now, shown once only
-                          </div>
-                          {newInviteLinks.links.map((link) => (
-                            <div key={link.email} style={{ marginBottom: 8 }}>
-                              <div style={{ fontSize: 11, color: "var(--md-on-surface)", opacity: 0.6, marginBottom: 3 }}>{link.email}</div>
-                              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                                <span style={{ fontSize: 10, fontFamily: "monospace", color: "var(--md-on-surface)", opacity: 0.7, flex: 1, wordBreak: "break-all" }}>{link.url}</span>
-                                <button onClick={() => handleCopyInvite(link.url)} style={{ ...btnSecondary, padding: "4px 10px", fontSize: 11, flexShrink: 0 }}>
-                                  {copiedInvite === link.url ? "✓ Copied" : "Copy"}
-                                </button>
-                              </div>
-                            </div>
-                          ))}
-                          <button onClick={() => { setNewInviteLinks(null); setEditingProject(null); }} style={{ ...btnGhost, marginTop: 6, fontSize: 11, padding: "5px 12px" }}>Done</button>
-                        </div>
-                      </div>
-                    )}
-
                     {/* Guest codes section */}
                     <div style={{ borderTop: "1px solid var(--md-outline-var)", paddingTop: 16 }}>
                       {project.secure ? (
-                        <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-                          <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "12px 16px", borderRadius: 10, background: "rgba(var(--md-primary-rgb,103,80,164),0.06)", border: "1px solid rgba(var(--md-primary-rgb,103,80,164),0.2)" }}>
-                            <span style={{ fontSize: 20 }}>🛡</span>
-                            <div>
-                              <div style={{ fontSize: 13, fontWeight: 600, color: "var(--md-primary)" }}>Secure project</div>
-                              <div style={{ fontSize: 11, color: "var(--md-on-surface)", opacity: 0.5, marginTop: 2 }}>Guest invite codes are permanently disabled. New members must confirm via an invitation link.</div>
-                            </div>
+                        <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "12px 16px", borderRadius: 10, background: "rgba(var(--md-primary-rgb,103,80,164),0.06)", border: "1px solid rgba(var(--md-primary-rgb,103,80,164),0.2)" }}>
+                          <span style={{ fontSize: 20 }}>🛡</span>
+                          <div>
+                            <div style={{ fontSize: 13, fontWeight: 600, color: "var(--md-primary)" }}>Secure project</div>
+                            <div style={{ fontSize: 11, color: "var(--md-on-surface)", opacity: 0.5, marginTop: 2 }}>Guest invite codes are permanently disabled for this project.</div>
                           </div>
-                          {/* Pending invitations */}
-                          {(pendingInvitations[project.id] ?? []).length > 0 && (
-                            <div>
-                              <div style={{ ...sectionLabel, marginBottom: 8 }}>Pending Confirmations</div>
-                              <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-                                {(pendingInvitations[project.id] ?? []).map((inv) => {
-                                  const expires = new Date(inv.expiresAt);
-                                  const daysLeft = Math.ceil((expires.getTime() - Date.now()) / 86400000);
-                                  return (
-                                    <div key={inv.id} style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 12px", borderRadius: 8, background: "var(--md-surface-cont)", border: "1px solid var(--md-outline-var)" }}>
-                                      <div style={{ flex: 1, minWidth: 0 }}>
-                                        <div style={{ fontSize: 12, color: "var(--md-on-surface)", opacity: 0.8 }}>{inv.email}</div>
-                                        <div style={{ fontSize: 11, marginTop: 2 }}>
-                                          <Badge color="primary">awaiting · {daysLeft}d left</Badge>
-                                        </div>
-                                      </div>
-                                      <button
-                                        onClick={() => handleRevokeInvitation(inv.id, project.id)}
-                                        disabled={revokingInvitation === inv.id}
-                                        style={{ ...btnDanger, padding: "4px 10px", fontSize: 11, opacity: revokingInvitation === inv.id ? 0.5 : 1 }}>
-                                        {revokingInvitation === inv.id ? "…" : "Revoke"}
-                                      </button>
-                                    </div>
-                                  );
-                                })}
-                              </div>
-                            </div>
-                          )}
                         </div>
                       ) : (<>
                       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>

@@ -8,10 +8,6 @@ import {
   canUserViewProject,
   type Project,
 } from "@/lib/project-settings";
-import {
-  createInvitation,
-  generateInviteToken,
-} from "@/lib/invitations";
 import { checkRateLimit } from "@/lib/utils";
 
 const _rateLimitMap = new Map<string, number[]>();
@@ -73,6 +69,18 @@ export async function POST(request: NextRequest) {
       allowedEmails.push(user.email);
     }
 
+    // Secure projects: all member emails must share the creator's domain
+    if (body.secure === true) {
+      const creatorDomain = user.email.split("@")[1]?.toLowerCase();
+      const offending = allowedEmails.filter((e) => e.split("@")[1]?.toLowerCase() !== creatorDomain);
+      if (offending.length > 0) {
+        return NextResponse.json(
+          { error: `Secure projects only allow members from the @${creatorDomain} domain.` },
+          { status: 400 },
+        );
+      }
+    }
+
     const project = await createProject({
       name,
       icon: body.icon?.trim() || undefined,
@@ -129,28 +137,14 @@ export async function PATCH(request: NextRequest) {
       updatedEmails.push(project.createdBy);
     }
 
-    // For secure projects: new emails must go through invitation confirmation
-    // rather than being added directly. Only the emails that already exist in
-    // allowedEmails (plus any removals) are applied immediately.
-    let inviteLinks: Array<{ email: string; url: string }> | undefined;
+    // Secure projects: all member emails must share the creator's domain
     if (project.secure && updatedEmails !== undefined) {
-      const currentEmails = new Set(project.allowedEmails.map((e) => e.toLowerCase()));
-      const newEmails = updatedEmails.filter((e) => !currentEmails.has(e.toLowerCase()));
-      // Only keep already-confirmed emails in the direct update
-      const confirmedEmails = updatedEmails.filter((e) => currentEmails.has(e.toLowerCase()));
-      updatedEmails = confirmedEmails;
-
-      if (newEmails.length > 0) {
-        const domain = (process.env.HYPERSET_DOMAIN || "").trim() || "hyperset.internal";
-        inviteLinks = await Promise.all(
-          newEmails.map(async (email) => {
-            const token = generateInviteToken();
-            await createInvitation(id, email, user.email, token);
-            return {
-              email,
-              url: `https://${domain}/api/invite/${token}`,
-            };
-          }),
+      const creatorDomain = project.createdBy.split("@")[1]?.toLowerCase();
+      const offending = updatedEmails.filter((e) => e.split("@")[1]?.toLowerCase() !== creatorDomain);
+      if (offending.length > 0) {
+        return NextResponse.json(
+          { error: `Secure projects only allow members from the @${creatorDomain} domain.` },
+          { status: 400 },
         );
       }
     }
@@ -162,7 +156,7 @@ export async function PATCH(request: NextRequest) {
       allowedEmails: updatedEmails,
     });
 
-    return NextResponse.json({ ok: true, ...(inviteLinks ? { inviteLinks } : {}) });
+    return NextResponse.json({ ok: true });
   } catch (e) {
     console.error("[admin/projects] Failed to update project:", e);
     return NextResponse.json({ error: "Failed to update project" }, { status: 500 });
