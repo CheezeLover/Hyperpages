@@ -13,7 +13,9 @@
       "Bash(grep -E \"\\\\.\\(tsx|ts\\)$\")",
       "Bash(grep -r \"canUserView\\\\|canManage\\\\|isAdmin\" 'C:\\\\Users\\\\VincentCROISE\\\\OneDrive - Ginesis Finance\\\\Documents\\\\GitHub\\\\Hyperset\\\\Hyperset\\\\Hyperpages' --include=*.ts --include=*.tsx)",
       "Bash(find 'C:/Users/VincentCROISE/OneDrive - Ginesis Finance/Documents/GitHub/Hyperset/Hyperset/Hyperpages' -type f \\\\\\(-name Caddyfile -o -name caddy.json -o -name *.caddy -o -name docker-compose* -o -name Dockerfile -o -name .env* -o -name auth.ts -o -name *.md -o -name README* \\\\\\))",
-      "Bash(find 'C:/Users/VincentCROISE/OneDrive - Ginesis Finance/Documents/GitHub/Hyperset/Hyperset/Hyperpages' -path */src/lib/auth.ts -o -path */src/*auth*)"
+      "Bash(find 'C:/Users/VincentCROISE/OneDrive - Ginesis Finance/Documents/GitHub/Hyperset/Hyperset/Hyperpages' -path */src/lib/auth.ts -o -path */src/*auth*)",
+      "Bash(find '/c/Users/VincentCROISE/OneDrive - Ginesis Finance/Documents/GitHub/Hyperset/Hyperset/Hyperpages' -type f \\\\\\(-name *.go -o -name *caddy* -o -name *jwt* \\\\\\))",
+      "Bash(grep -r export.*html 'C:\\\\Users\\\\VincentCROISE\\\\OneDrive - Ginesis Finance\\\\Documents\\\\GitHub\\\\Hyperset\\\\Hyperset\\\\Hyperpages\\\\portal-app\\\\src' --include=*.ts --include=*.tsx)"
     ]
   }
 }

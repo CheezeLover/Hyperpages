@@ -7,6 +7,7 @@
 import { type NextRequest } from "next/server";
 import { getUserFromRequest } from "@/lib/auth";
 import { getAllPageSettings } from "@/lib/page-settings";
+import { getAllProjects, canUserViewProject } from "@/lib/project-settings";
 import fs from "fs";
 import path from "path";
 
@@ -22,6 +23,12 @@ export async function GET(request: NextRequest) {
 
   const projectId = request.nextUrl.searchParams.get("projectId");
   if (!projectId) return new Response("Missing projectId", { status: 400 });
+
+  const allProjects = await getAllProjects();
+  const project = allProjects.find((p) => p.id === projectId);
+  if (!project || !canUserViewProject(project, user.email, user.isAdmin, user.guestProjectIds)) {
+    return new Response("Forbidden", { status: 403 });
+  }
 
   const allSettings = await getAllPageSettings();
   const pageNames = Object.entries(allSettings)
