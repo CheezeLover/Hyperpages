@@ -55,6 +55,7 @@ export async function POST(request: NextRequest) {
       icon?: string;
       iconColor?: string;
       allowedEmails?: string[];
+      secure?: boolean;
     };
 
     const name = body.name?.trim();
@@ -74,6 +75,7 @@ export async function POST(request: NextRequest) {
       iconColor: body.iconColor?.trim() || undefined,
       allowedEmails,
       createdBy: user.email,
+      secure: body.secure === true,
     });
 
     return NextResponse.json({ ok: true, project });

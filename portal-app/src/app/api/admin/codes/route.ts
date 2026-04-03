@@ -79,6 +79,11 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
+    // Secure projects permanently forbid guest access codes
+    if (project.secure) {
+      return NextResponse.json({ error: "Guest invite codes are disabled for secure projects" }, { status: 403 });
+    }
+
     const plaintext = generatePlaintextCode();
     const record = await createAccessCode(projectId, user.email, plaintext);
 

@@ -58,7 +58,7 @@ interface PageInfo {
 }
 interface ProjectInfo {
   id: string; name: string; icon?: string; iconColor?: string;
-  allowedEmails: string[]; createdBy: string;
+  allowedEmails: string[]; createdBy: string; secure?: boolean;
 }
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
@@ -253,6 +253,7 @@ function ProjectsTab({ userEmail, isAdmin, onPageFilesChanged }: { userEmail: st
   const [newIcon, setNewIcon] = useState("");
   const [newIconColor, setNewIconColor] = useState("");
   const [newEmails, setNewEmails] = useState("");
+  const [newSecure, setNewSecure] = useState(false);
 
   const [editingProject, setEditingProject] = useState<string | null>(null);
   const [editName, setEditName] = useState("");
@@ -307,10 +308,10 @@ function ProjectsTab({ userEmail, isAdmin, onPageFilesChanged }: { userEmail: st
       const emails = newEmails.split(",").map((e) => e.trim()).filter(Boolean);
       const res = await fetch("/api/admin/projects", {
         method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name: newName.trim(), icon: newIcon.trim() || undefined, iconColor: newIconColor.trim() || undefined, allowedEmails: emails }),
+        body: JSON.stringify({ name: newName.trim(), icon: newIcon.trim() || undefined, iconColor: newIconColor.trim() || undefined, allowedEmails: emails, secure: newSecure }),
       });
       if (!res.ok) throw new Error(((await res.json()) as { error?: string }).error ?? "Create failed");
-      setShowCreate(false); setNewName(""); setNewIcon(""); setNewIconColor(""); setNewEmails("");
+      setShowCreate(false); setNewName(""); setNewIcon(""); setNewIconColor(""); setNewEmails(""); setNewSecure(false);
       loadData(true);
     } catch (e) { setError(e instanceof Error ? e.message : "Create failed"); }
     finally { setCreating(false); }
@@ -490,9 +491,16 @@ function ProjectsTab({ userEmail, isAdmin, onPageFilesChanged }: { userEmail: st
               <textarea value={newEmails} onChange={(e) => setNewEmails(e.target.value)} placeholder="alice@example.com, bob@example.com" rows={2} style={{ ...input, resize: "vertical", fontFamily: "inherit" }} />
               <p style={{ fontSize: 11, opacity: 0.4, color: "var(--md-on-surface)", margin: "5px 0 0" }}>Your email is always included.</p>
             </div>
+            <label style={{ display: "flex", alignItems: "flex-start", gap: 10, cursor: "pointer", padding: "10px 14px", borderRadius: 9, border: `1px solid ${newSecure ? "rgba(var(--md-primary-rgb,103,80,164),0.35)" : "var(--md-outline-var)"}`, background: newSecure ? "rgba(var(--md-primary-rgb,103,80,164),0.05)" : "var(--md-surface-cont)" }}>
+              <input type="checkbox" checked={newSecure} onChange={(e) => setNewSecure(e.target.checked)} style={{ accentColor: "var(--md-primary)", marginTop: 2, flexShrink: 0 }} />
+              <div>
+                <div style={{ fontSize: 12, fontWeight: 600, color: newSecure ? "var(--md-primary)" : "var(--md-on-surface)" }}>🛡 Secure project</div>
+                <div style={{ fontSize: 11, color: "var(--md-on-surface)", opacity: 0.5, marginTop: 2 }}>Permanently disables guest invite codes. Cannot be changed after creation.</div>
+              </div>
+            </label>
             <div style={{ display: "flex", gap: 8, paddingTop: 4 }}>
               <button onClick={handleCreateProject} disabled={creating} style={{ ...btnPrimary, opacity: creating ? 0.6 : 1 }}>{creating ? "Creating…" : "Create"}</button>
-              <button onClick={() => { setShowCreate(false); setError(""); }} style={btnGhost}>Cancel</button>
+              <button onClick={() => { setShowCreate(false); setNewSecure(false); setError(""); }} style={btnGhost}>Cancel</button>
             </div>
           </div>
         </div>
@@ -540,6 +548,15 @@ function ProjectsTab({ userEmail, isAdmin, onPageFilesChanged }: { userEmail: st
 
                     {/* Guest codes section */}
                     <div style={{ borderTop: "1px solid var(--md-outline-var)", paddingTop: 16 }}>
+                      {project.secure ? (
+                        <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "12px 16px", borderRadius: 10, background: "rgba(var(--md-primary-rgb,103,80,164),0.06)", border: "1px solid rgba(var(--md-primary-rgb,103,80,164),0.2)" }}>
+                          <span style={{ fontSize: 20 }}>🛡</span>
+                          <div>
+                            <div style={{ fontSize: 13, fontWeight: 600, color: "var(--md-primary)" }}>Secure project</div>
+                            <div style={{ fontSize: 11, color: "var(--md-on-surface)", opacity: 0.5, marginTop: 2 }}>Guest invite codes are permanently disabled for this project.</div>
+                          </div>
+                        </div>
+                      ) : (<>
                       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
                         <span style={sectionLabel}>Guest Invite Codes</span>
                         <button
@@ -608,6 +625,7 @@ function ProjectsTab({ userEmail, isAdmin, onPageFilesChanged }: { userEmail: st
                           No active codes
                         </div>
                       )}
+                      </>)}
                     </div>
 
                     {/* Save / cancel */}
@@ -628,12 +646,20 @@ function ProjectsTab({ userEmail, isAdmin, onPageFilesChanged }: { userEmail: st
 
                       {/* Name + meta */}
                       <div style={{ flex: 1, minWidth: 0 }}>
-                        <div style={{ fontSize: 13, fontWeight: 600, color: "var(--md-on-surface)" }}>{project.name}</div>
+                        <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                          <span style={{ fontSize: 13, fontWeight: 600, color: "var(--md-on-surface)" }}>{project.name}</span>
+                          {project.secure && <Badge color="primary">🛡 Secure</Badge>}
+                        </div>
                         <div style={{ fontSize: 11, color: "var(--md-on-surface)", opacity: 0.45, marginTop: 1 }}>
                           {projectPages.length} page{projectPages.length !== 1 ? "s" : ""}
                           {project.allowedEmails.length > 0 && ` · ${project.allowedEmails.length} member${project.allowedEmails.length !== 1 ? "s" : ""}`}
                           {project.createdBy === userEmail && " · owner"}
                         </div>
+                        {!project.secure && (
+                          <div style={{ fontSize: 10, color: "#f59e0b", marginTop: 3, display: "flex", alignItems: "center", gap: 4 }}>
+                            <span>⚠</span><span style={{ opacity: 0.85 }}>Do not store confidential or secret information in this project</span>
+                          </div>
+                        )}
                       </div>
 
                       {/* Actions */}

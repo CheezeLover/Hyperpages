@@ -15,6 +15,8 @@ export interface Project {
   iconColor?: string;
   allowedEmails: string[];
   createdBy: string;
+  /** Set once at creation; permanently disables guest invite codes. */
+  secure: boolean;
 }
 
 // Per-instance cache; null = not loaded yet
@@ -34,7 +36,8 @@ export async function getAllProjects(): Promise<Project[]> {
     icon_color: string | null;
     allowed_emails: string[];
     created_by: string;
-  }[]>`SELECT id, name, icon, icon_color, allowed_emails, created_by FROM hyperset_projects ORDER BY name`;
+    secure: boolean;
+  }[]>`SELECT id, name, icon, icon_color, allowed_emails, created_by, secure FROM hyperset_projects ORDER BY name`;
   _cache = rows.map((r) => ({
     id: r.id,
     name: r.name,
@@ -42,6 +45,7 @@ export async function getAllProjects(): Promise<Project[]> {
     iconColor: r.icon_color ?? undefined,
     allowedEmails: r.allowed_emails,
     createdBy: r.created_by,
+    secure: r.secure ?? false,
   }));
   return _cache;
 }
@@ -55,11 +59,12 @@ export async function createProject(data: Omit<Project, "id">): Promise<Project>
   await ensureSchema();
   const id = randomUUID();
   await sql`
-    INSERT INTO hyperset_projects (id, name, icon, icon_color, allowed_emails, created_by)
+    INSERT INTO hyperset_projects (id, name, icon, icon_color, allowed_emails, created_by, secure)
     VALUES (
       ${id}, ${data.name},
       ${data.icon ?? null}, ${data.iconColor ?? null},
-      ${data.allowedEmails}, ${data.createdBy}
+      ${data.allowedEmails}, ${data.createdBy},
+      ${data.secure ?? false}
     )
   `;
   invalidateProjectCache();
@@ -68,7 +73,7 @@ export async function createProject(data: Omit<Project, "id">): Promise<Project>
 
 export async function updateProject(
   id: string,
-  patch: Partial<Omit<Project, "id" | "createdBy">>,
+  patch: Partial<Omit<Project, "id" | "createdBy" | "secure">>,
 ): Promise<void> {
   await ensureSchema();
   const proj = await getProject(id);

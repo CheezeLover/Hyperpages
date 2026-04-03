@@ -101,6 +101,11 @@ async function _runMigrations(): Promise<void> {
   `;
 
   await sql`
+    ALTER TABLE hyperset_projects
+    ADD COLUMN IF NOT EXISTS secure BOOLEAN NOT NULL DEFAULT FALSE
+  `;
+
+  await sql`
     CREATE TABLE IF NOT EXISTS hyperset_access_codes (
       id          TEXT        PRIMARY KEY,
       project_id  TEXT        NOT NULL,
