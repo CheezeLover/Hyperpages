@@ -646,16 +646,17 @@ function ProjectsTab({ userEmail, isAdmin, onPageFilesChanged }: { userEmail: st
 
                       {/* Name + meta */}
                       <div style={{ flex: 1, minWidth: 0 }}>
-                        <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                          <span style={{ fontSize: 13, fontWeight: 600, color: "var(--md-on-surface)" }}>{project.name}</span>
-                          {project.secure && <Badge color="primary">🛡 Secure</Badge>}
-                        </div>
+                        <div style={{ fontSize: 13, fontWeight: 600, color: "var(--md-on-surface)" }}>{project.name}</div>
                         <div style={{ fontSize: 11, color: "var(--md-on-surface)", opacity: 0.45, marginTop: 1 }}>
                           {projectPages.length} page{projectPages.length !== 1 ? "s" : ""}
                           {project.allowedEmails.length > 0 && ` · ${project.allowedEmails.length} member${project.allowedEmails.length !== 1 ? "s" : ""}`}
                           {project.createdBy === userEmail && " · owner"}
                         </div>
-                        {!project.secure && (
+                        {project.secure ? (
+                          <div style={{ display: "inline-flex", alignItems: "center", gap: 4, marginTop: 4, padding: "2px 8px 2px 6px", borderRadius: 20, background: "rgba(var(--md-primary-rgb,103,80,164),0.08)", border: "1px solid rgba(var(--md-primary-rgb,103,80,164),0.22)", fontSize: 10, fontWeight: 500, color: "var(--md-primary)", whiteSpace: "nowrap" }}>
+                            <span style={{ fontSize: 9 }}>🛡</span><span>Secure</span>
+                          </div>
+                        ) : (
                           <div style={{ display: "inline-flex", alignItems: "center", gap: 4, marginTop: 4, padding: "2px 8px 2px 6px", borderRadius: 20, background: "rgba(245,158,11,0.08)", border: "1px solid rgba(245,158,11,0.22)", fontSize: 10, fontWeight: 500, color: "#d97706", whiteSpace: "nowrap" }}>
                             <span style={{ fontSize: 9 }}>⚠</span><span>Not for confidential data</span>
                           </div>
