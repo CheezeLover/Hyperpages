@@ -165,7 +165,7 @@ function PageInlineEditor({ page, onClose, onSaved, onFilesReplaced }: {
   };
 
   return (
-    <div style={{ padding: "14px 20px 16px", background: "var(--md-surface-cont)", borderTop: "1px solid var(--md-outline-var)", borderRadius: 0 }}>
+    <div style={{ padding: "14px 20px 16px", background: "var(--md-surface)", borderTop: "1px solid var(--md-outline-var)", borderRadius: 0 }}>
       {error && <div style={{ marginBottom: 12 }}><ErrorBanner msg={error} /></div>}
       <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
         <div>
