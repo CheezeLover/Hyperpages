@@ -9,30 +9,30 @@ const label: React.CSSProperties = {
 };
 const input: React.CSSProperties = {
   width: "100%", background: "var(--md-surface)", border: "1px solid var(--md-outline-var)",
-  borderRadius: 8, padding: "9px 12px", fontSize: 13, color: "var(--md-on-surface)",
+  borderRadius: 4, padding: "9px 12px", fontSize: 13, color: "var(--md-on-surface)",
   outline: "none", transition: "border-color 0.15s",
   boxSizing: "border-box",
 };
 const btnPrimary: React.CSSProperties = {
-  background: "var(--md-primary)", color: "#fff", border: "none", borderRadius: 8,
+  background: "var(--md-primary)", color: "#fff", border: "none", borderRadius: 4,
   padding: "9px 18px", fontSize: 13, fontWeight: 600, cursor: "pointer",
 };
 const btnGhost: React.CSSProperties = {
   background: "none", color: "var(--md-on-surface)", border: "1px solid var(--md-outline-var)",
-  borderRadius: 8, padding: "8px 14px", fontSize: 12, fontWeight: 500, cursor: "pointer",
+  borderRadius: 4, padding: "8px 14px", fontSize: 12, fontWeight: 500, cursor: "pointer",
 };
 const btnDanger: React.CSSProperties = {
   background: "none", color: "#ef4444", border: "1px solid rgba(239,68,68,0.25)",
-  borderRadius: 8, padding: "6px 12px", fontSize: 12, fontWeight: 500, cursor: "pointer",
+  borderRadius: 4, padding: "6px 12px", fontSize: 12, fontWeight: 500, cursor: "pointer",
 };
 const btnSecondary: React.CSSProperties = {
   background: "var(--md-surface-cont)", color: "var(--md-on-surface)",
-  border: "1px solid var(--md-outline-var)", borderRadius: 8,
+  border: "1px solid var(--md-outline-var)", borderRadius: 4,
   padding: "8px 14px", fontSize: 12, fontWeight: 500, cursor: "pointer",
 };
 const card: React.CSSProperties = {
-  background: "var(--md-surface)", borderRadius: 12,
-  border: "1px solid var(--md-outline-var)", overflow: "hidden",
+  background: "var(--md-surface)", borderRadius: 0,
+  borderBottom: "1px solid var(--md-outline-var)", overflow: "hidden",
 };
 const sectionLabel: React.CSSProperties = {
   fontSize: 11, fontWeight: 600, letterSpacing: "0.06em", textTransform: "uppercase",
@@ -102,14 +102,14 @@ function FilePicker({ accept, placeholder, file, onChange }: {
       <input ref={ref} type="file" accept={accept} style={{ display: "none" }}
         onChange={(e) => onChange(e.target.files?.[0] ?? null)} />
       {file ? (
-        <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "7px 12px", background: "var(--md-surface)", border: "1px solid var(--md-outline-var)", borderRadius: 8, fontSize: 12, color: "var(--md-on-surface)" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "7px 12px", background: "var(--md-surface)", border: "1px solid var(--md-outline-var)", borderRadius: 4, fontSize: 12, color: "var(--md-on-surface)" }}>
           <span style={{ flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{file.name}</span>
           <button onClick={() => { onChange(null); if (ref.current) ref.current.value = ""; }}
             style={{ background: "none", border: "none", cursor: "pointer", padding: 0, color: "var(--md-on-surface)", opacity: 0.45, fontSize: 14, lineHeight: 1 }}>✕</button>
         </div>
       ) : (
         <button onClick={() => ref.current?.click()}
-          style={{ background: "none", border: "1px dashed var(--md-outline-var)", borderRadius: 8, padding: "7px 0", fontSize: 12, color: "var(--md-on-surface)", opacity: 0.45, cursor: "pointer", width: "100%", textAlign: "center" }}>
+          style={{ background: "none", border: "1px dashed var(--md-outline-var)", borderRadius: 4, padding: "7px 0", fontSize: 12, color: "var(--md-on-surface)", opacity: 0.45, cursor: "pointer", width: "100%", textAlign: "center" }}>
           + {placeholder}
         </button>
       )}
@@ -165,7 +165,7 @@ function PageInlineEditor({ page, onClose, onSaved, onFilesReplaced }: {
   };
 
   return (
-    <div style={{ padding: "14px 20px 16px", background: "var(--md-surface-cont)", borderTop: "1px solid var(--md-outline-var)" }}>
+    <div style={{ padding: "14px 20px 16px", background: "var(--md-surface-cont)", borderTop: "1px solid var(--md-outline-var)", borderRadius: 0 }}>
       {error && <div style={{ marginBottom: 12 }}><ErrorBanner msg={error} /></div>}
       <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
         <div>
@@ -231,7 +231,7 @@ function UploadForm({ projectId, onClose, onUploaded }: { projectId: string; onC
   };
 
   return (
-    <div style={{ background: "var(--md-surface-cont)", borderRadius: 10, padding: 14, border: "1px solid var(--md-outline-var)", marginTop: 8 }}>
+    <div style={{ background: "var(--md-surface-cont)", borderRadius: 4, padding: 14, border: "1px solid var(--md-outline-var)", marginTop: 8 }}>
       {error && <div style={{ marginBottom: 10 }}><ErrorBanner msg={error} /></div>}
       <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
         <div>
@@ -467,11 +467,11 @@ function ProjectsTab({ userEmail, isAdmin, onPageFilesChanged }: { userEmail: st
     isAdmin || project.createdBy === userEmail || project.allowedEmails.includes(userEmail);
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
-      {error && <ErrorBanner msg={error} />}
+    <div style={{ display: "flex", flexDirection: "column" }}>
+      {error && <div style={{ padding: "16px 20px 0" }}><ErrorBanner msg={error} /></div>}
 
       {/* Header row */}
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "20px 20px 16px" }}>
         <div>
           <div style={{ fontSize: 15, fontWeight: 700, color: "var(--md-on-surface)" }}>Projects</div>
           <div style={{ fontSize: 12, color: "var(--md-on-surface)", opacity: 0.45, marginTop: 1 }}>{projects.length} project{projects.length !== 1 ? "s" : ""}</div>
@@ -483,10 +483,10 @@ function ProjectsTab({ userEmail, isAdmin, onPageFilesChanged }: { userEmail: st
               Templates <span style={{ opacity: 0.5, marginLeft: 2 }}>▾</span>
             </button>
             {showTemplates && (
-              <div style={{ position: "absolute", top: "calc(100% + 6px)", right: 0, background: "var(--md-surface)", border: "1px solid var(--md-outline-var)", borderRadius: 10, padding: 6, zIndex: 10, minWidth: 150, boxShadow: "0 8px 24px rgba(0,0,0,0.12)" }}>
+              <div style={{ position: "absolute", top: "calc(100% + 6px)", right: 0, background: "var(--md-surface)", border: "1px solid var(--md-outline-var)", borderRadius: 4, padding: 4, zIndex: 10, minWidth: 150, boxShadow: "0 4px 16px rgba(0,0,0,0.12)" }}>
                 {[["blank.html", "/page-templates/blank.html"], ["backend.py", "/page-templates/backend.py"]].map(([name, url]) => (
                   <button key={name} onClick={() => { window.open(url, "_blank"); setShowTemplates(false); }}
-                    style={{ display: "block", width: "100%", textAlign: "left", background: "none", border: "none", padding: "8px 10px", borderRadius: 7, cursor: "pointer", color: "var(--md-on-surface)", fontSize: 12, fontFamily: "monospace" }}>
+                    style={{ display: "block", width: "100%", textAlign: "left", background: "none", border: "none", padding: "8px 10px", borderRadius: 3, cursor: "pointer", color: "var(--md-on-surface)", fontSize: 12, fontFamily: "monospace" }}>
                     {name}
                   </button>
                 ))}
@@ -499,7 +499,7 @@ function ProjectsTab({ userEmail, isAdmin, onPageFilesChanged }: { userEmail: st
 
       {/* Create project form */}
       {showCreate && (
-        <div style={{ ...card, padding: 18 }}>
+        <div style={{ padding: "0 20px 16px" }}><div style={{ ...card, padding: 18, border: "1px solid var(--md-outline-var)" }}>
           <div style={{ fontSize: 13, fontWeight: 600, color: "var(--md-on-surface)", marginBottom: 16 }}>New project</div>
           <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
             <div>
@@ -521,7 +521,7 @@ function ProjectsTab({ userEmail, isAdmin, onPageFilesChanged }: { userEmail: st
               <textarea value={newEmails} onChange={(e) => setNewEmails(e.target.value)} placeholder="alice@example.com, bob@example.com" rows={2} style={{ ...input, resize: "vertical", fontFamily: "inherit" }} />
               <p style={{ fontSize: 11, opacity: 0.4, color: "var(--md-on-surface)", margin: "5px 0 0" }}>Your email is always included.</p>
             </div>
-            <label style={{ display: "flex", alignItems: "flex-start", gap: 10, cursor: "pointer", padding: "10px 14px", borderRadius: 9, border: `1px solid ${newSecure ? "rgba(var(--md-primary-rgb,103,80,164),0.35)" : "var(--md-outline-var)"}`, background: newSecure ? "rgba(var(--md-primary-rgb,103,80,164),0.05)" : "var(--md-surface-cont)" }}>
+            <label style={{ display: "flex", alignItems: "flex-start", gap: 10, cursor: "pointer", padding: "10px 14px", borderRadius: 4, border: `1px solid ${newSecure ? "rgba(var(--md-primary-rgb,103,80,164),0.35)" : "var(--md-outline-var)"}`, background: newSecure ? "rgba(var(--md-primary-rgb,103,80,164),0.05)" : "var(--md-surface-cont)" }}>
               <input type="checkbox" checked={newSecure} onChange={(e) => setNewSecure(e.target.checked)} style={{ accentColor: "var(--md-primary)", marginTop: 2, flexShrink: 0 }} />
               <div>
                 <div style={{ fontSize: 12, fontWeight: 600, color: newSecure ? "var(--md-primary)" : "var(--md-on-surface)" }}>🛡 Secure project</div>
@@ -533,7 +533,7 @@ function ProjectsTab({ userEmail, isAdmin, onPageFilesChanged }: { userEmail: st
               <button onClick={() => { setShowCreate(false); setNewSecure(false); setError(""); }} style={btnGhost}>Cancel</button>
             </div>
           </div>
-        </div>
+        </div></div>
       )}
 
       {/* Projects list */}
@@ -542,14 +542,14 @@ function ProjectsTab({ userEmail, isAdmin, onPageFilesChanged }: { userEmail: st
           No projects yet. Create one to get started.
         </div>
       ) : (
-        <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+        <div style={{ display: "flex", flexDirection: "column", borderTop: "1px solid var(--md-outline-var)" }}>
           {projects.map((project) => {
             const canManageProject = isAdmin || project.createdBy === userEmail || project.allowedEmails.includes(userEmail);
             const canDeleteProject = isAdmin || project.createdBy === userEmail;
             const projectPages = pages.filter((p) => p.projectId === project.id).sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
 
             return (
-              <div key={project.id} style={card}>
+              <div key={project.id} style={{ background: "var(--md-surface)", borderBottom: "1px solid var(--md-outline-var)", overflow: "hidden" }}>
 
                 {/* ── Edit mode ─────────────────────────────────────────────── */}
                 {editingProject === project.id ? (
@@ -564,7 +564,7 @@ function ProjectsTab({ userEmail, isAdmin, onPageFilesChanged }: { userEmail: st
 
                     {/* Creator badge */}
                     {project.createdBy && (
-                      <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 12px", borderRadius: 8, background: "var(--md-surface-cont)", border: "1px solid var(--md-outline-var)" }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 12px", borderRadius: 4, background: "var(--md-surface-cont)", border: "1px solid var(--md-outline-var)" }}>
                         <span style={{ fontSize: 13 }}>🔒</span>
                         <span style={{ fontSize: 12, color: "var(--md-on-surface)", opacity: 0.75 }}>{project.createdBy}</span>
                         <Badge>creator</Badge>
@@ -587,7 +587,7 @@ function ProjectsTab({ userEmail, isAdmin, onPageFilesChanged }: { userEmail: st
                     {/* Guest codes section */}
                     <div style={{ borderTop: "1px solid var(--md-outline-var)", paddingTop: 16 }}>
                       {project.secure ? (
-                        <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "12px 16px", borderRadius: 10, background: "rgba(var(--md-primary-rgb,103,80,164),0.06)", border: "1px solid rgba(var(--md-primary-rgb,103,80,164),0.2)" }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "12px 16px", borderRadius: 4, background: "rgba(var(--md-primary-rgb,103,80,164),0.06)", border: "1px solid rgba(var(--md-primary-rgb,103,80,164),0.2)" }}>
                           <span style={{ fontSize: 20 }}>🛡</span>
                           <div>
                             <div style={{ fontSize: 13, fontWeight: 600, color: "var(--md-primary)" }}>Secure project</div>
@@ -608,7 +608,7 @@ function ProjectsTab({ userEmail, isAdmin, onPageFilesChanged }: { userEmail: st
 
                       {/* New code banner */}
                       {newCode?.projectId === project.id && (
-                        <div style={{ background: "rgba(var(--md-primary-rgb,103,80,164),0.07)", border: "1px solid rgba(var(--md-primary-rgb,103,80,164),0.25)", borderRadius: 10, padding: "12px 14px", marginBottom: 10 }}>
+                        <div style={{ background: "rgba(var(--md-primary-rgb,103,80,164),0.07)", border: "1px solid rgba(var(--md-primary-rgb,103,80,164),0.25)", borderRadius: 4, padding: "12px 14px", marginBottom: 10 }}>
                           <div style={{ fontSize: 11, color: "var(--md-primary)", fontWeight: 700, letterSpacing: "0.04em", textTransform: "uppercase", marginBottom: 8 }}>
                             New code — copy now, shown once only
                           </div>
@@ -639,7 +639,7 @@ function ProjectsTab({ userEmail, isAdmin, onPageFilesChanged }: { userEmail: st
                             const isExpired = expires < new Date();
                             const daysLeft = Math.ceil((expires.getTime() - Date.now()) / 86400000);
                             return (
-                              <div key={c.id} style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 12px", borderRadius: 8, background: "var(--md-surface-cont)", border: "1px solid var(--md-outline-var)" }}>
+                              <div key={c.id} style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 12px", borderRadius: 4, background: "var(--md-surface-cont)", border: "1px solid var(--md-outline-var)" }}>
                                 <div style={{ flex: 1, minWidth: 0 }}>
                                   <div style={{ fontSize: 12, color: "var(--md-on-surface)", opacity: 0.7 }}>
                                     {c.createdBy.split("@")[0]} · {new Date(c.createdAt).toLocaleDateString()}
@@ -678,7 +678,7 @@ function ProjectsTab({ userEmail, isAdmin, onPageFilesChanged }: { userEmail: st
                   <div>
                     <div style={{ padding: "12px 16px", display: "flex", alignItems: "center", gap: 12 }}>
                       {/* Project icon */}
-                      <div style={{ width: 36, height: 36, borderRadius: 9, background: project.iconColor || "var(--md-primary)", display: "flex", alignItems: "center", justifyContent: "center", color: "white", fontSize: 15, fontWeight: 700, flexShrink: 0 }}>
+                      <div style={{ width: 36, height: 36, borderRadius: 4, background: project.iconColor || "var(--md-primary)", display: "flex", alignItems: "center", justifyContent: "center", color: "white", fontSize: 15, fontWeight: 700, flexShrink: 0 }}>
                         {project.icon || project.name.charAt(0).toUpperCase()}
                       </div>
 
@@ -691,11 +691,11 @@ function ProjectsTab({ userEmail, isAdmin, onPageFilesChanged }: { userEmail: st
                           {project.createdBy === userEmail && " · owner"}
                         </div>
                         {project.secure ? (
-                          <div style={{ display: "inline-flex", alignItems: "center", gap: 4, marginTop: 4, padding: "2px 8px 2px 6px", borderRadius: 20, background: "rgba(var(--md-primary-rgb,103,80,164),0.08)", border: "1px solid rgba(var(--md-primary-rgb,103,80,164),0.22)", fontSize: 10, fontWeight: 500, color: "var(--md-primary)", whiteSpace: "nowrap" }}>
+                          <div style={{ display: "inline-flex", alignItems: "center", gap: 4, marginTop: 4, padding: "2px 8px 2px 6px", borderRadius: 3, background: "rgba(var(--md-primary-rgb,103,80,164),0.08)", border: "1px solid rgba(var(--md-primary-rgb,103,80,164),0.22)", fontSize: 10, fontWeight: 500, color: "var(--md-primary)", whiteSpace: "nowrap" }}>
                             <span style={{ fontSize: 9 }}>🛡</span><span>Secure</span>
                           </div>
                         ) : (
-                          <div style={{ display: "inline-flex", alignItems: "center", gap: 4, marginTop: 4, padding: "2px 8px 2px 6px", borderRadius: 20, background: "rgba(245,158,11,0.08)", border: "1px solid rgba(245,158,11,0.22)", fontSize: 10, fontWeight: 500, color: "#d97706", whiteSpace: "nowrap" }}>
+                          <div style={{ display: "inline-flex", alignItems: "center", gap: 4, marginTop: 4, padding: "2px 8px 2px 6px", borderRadius: 3, background: "rgba(245,158,11,0.08)", border: "1px solid rgba(245,158,11,0.22)", fontSize: 10, fontWeight: 500, color: "#d97706", whiteSpace: "nowrap" }}>
                             <span style={{ fontSize: 9 }}>⚠</span><span>Not for confidential data</span>
                           </div>
                         )}
@@ -735,7 +735,7 @@ function ProjectsTab({ userEmail, isAdmin, onPageFilesChanged }: { userEmail: st
                                 borderBottom: (!isLastRow || isEditingThisPage) ? "1px solid var(--md-outline-var)" : "none",
                               }}>
                                 {/* Page icon */}
-                                <div style={{ width: 26, height: 26, borderRadius: 6, background: page.iconColor || (isActive ? "var(--md-primary)" : "var(--md-surface-cont)"), display: "flex", alignItems: "center", justifyContent: "center", color: isActive ? "white" : "var(--md-on-surface)", opacity: isActive ? 1 : 0.4, fontSize: 11, fontWeight: 700, flexShrink: 0 }}>
+                                <div style={{ width: 26, height: 26, borderRadius: 3, background: page.iconColor || (isActive ? "var(--md-primary)" : "var(--md-surface-cont)"), display: "flex", alignItems: "center", justifyContent: "center", color: isActive ? "white" : "var(--md-on-surface)", opacity: isActive ? 1 : 0.4, fontSize: 11, fontWeight: 700, flexShrink: 0 }}>
                                   {page.icon || (page.displayName ?? page.name.split("/").pop() ?? page.name).charAt(0).toUpperCase()}
                                 </div>
 
@@ -797,7 +797,7 @@ function ProjectsTab({ userEmail, isAdmin, onPageFilesChanged }: { userEmail: st
                               <UploadForm projectId={project.id} onClose={() => setUploadForProject(null)} onUploaded={() => loadData(true)} />
                             ) : (
                               <button onClick={() => setUploadForProject(project.id)}
-                                style={{ background: "none", border: "1px dashed var(--md-outline-var)", borderRadius: 8, padding: "6px 0", fontSize: 12, color: "var(--md-on-surface)", opacity: 0.35, cursor: "pointer", width: "100%", textAlign: "center", transition: "opacity 0.15s" }}>
+                                style={{ background: "none", border: "1px dashed var(--md-outline-var)", borderRadius: 4, padding: "6px 0", fontSize: 12, color: "var(--md-on-surface)", opacity: 0.35, cursor: "pointer", width: "100%", textAlign: "center", transition: "opacity 0.15s" }}>
                                 + Add page
                               </button>
                             )}
@@ -825,7 +825,7 @@ export function AdminModal({ onClose, userEmail, isAdmin, selectedProjectId, onS
 
         {/* Header */}
         <div style={{ display: "flex", alignItems: "center", padding: "14px 20px", gap: 10, borderBottom: "1px solid var(--md-outline-var)", flexShrink: 0 }}>
-          <div style={{ width: 28, height: 28, borderRadius: 8, background: "var(--md-primary)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+          <div style={{ width: 28, height: 28, borderRadius: 4, background: "var(--md-primary)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
             <svg viewBox="0 0 24 24" width={14} height={14} fill="white"><path d="M3 18h18v-2H3v2zm0-5h18v-2H3v2zm0-7v2h18V6H3z"/></svg>
           </div>
           <span style={{ fontSize: 14, fontWeight: 700, color: "var(--md-on-surface)", letterSpacing: "-0.01em" }}>Admin</span>
@@ -843,7 +843,7 @@ export function AdminModal({ onClose, userEmail, isAdmin, selectedProjectId, onS
                   <button key={p.id} onClick={() => onSelectProject(p.id)} title={p.name}
                     style={{
                       display: "flex", alignItems: "center", gap: 6, padding: "5px 12px",
-                      borderRadius: 20, fontSize: 12, fontWeight: isActive ? 600 : 400,
+                      borderRadius: 4, fontSize: 12, fontWeight: isActive ? 600 : 400,
                       border: isActive ? "1.5px solid var(--md-primary)" : "1px solid var(--md-outline-var)",
                       background: isActive ? "rgba(var(--md-primary-rgb,103,80,164),0.08)" : "transparent",
                       color: isActive ? "var(--md-primary)" : "var(--md-on-surface)",
@@ -859,7 +859,7 @@ export function AdminModal({ onClose, userEmail, isAdmin, selectedProjectId, onS
         )}
 
         {/* Body */}
-        <div style={{ flex: 1, overflowY: "auto", padding: "20px 20px" }}>
+        <div style={{ flex: 1, overflowY: "auto", padding: 0 }}>
           <ProjectsTab userEmail={userEmail} isAdmin={isAdmin} onPageFilesChanged={onPageFilesChanged} />
         </div>
       </div>
