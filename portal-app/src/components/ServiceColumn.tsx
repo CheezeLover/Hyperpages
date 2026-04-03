@@ -196,8 +196,6 @@ export function ServiceColumn({ isPortraitMode, pages, selectedPage, onSelectPag
         }
     : {};
 
-  const hasDivider = pages.length > 0;
-
   return (
     <>
     <div
@@ -241,17 +239,6 @@ export function ServiceColumn({ isPortraitMode, pages, selectedPage, onSelectPag
           {pageIcon(page.name, page.icon, page.iconColor, selectedPage?.name === page.name)}
         </ServiceBtn>
       ))}
-
-      {/* Divider between pages and utility buttons */}
-      {!isPortraitMode && hasDivider && (
-        <div style={{
-          width: "calc(100% - 20px)",
-          height: 1,
-          background: "var(--md-outline-var)",
-          flexShrink: 0,
-          margin: "4px auto",
-        }} />
-      )}
 
       {!isPortraitMode && <div style={{ flex: 1 }} />}
 
