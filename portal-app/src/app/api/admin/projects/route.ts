@@ -20,8 +20,14 @@ function requireAuth(request: NextRequest) {
   return null;
 }
 
+/** Full management: creator and admins only (rename, change membership, delete). */
 function canManageProject(project: Project, user: HypersetUser): boolean {
   return user.isAdmin || project.createdBy === user.email;
+}
+
+/** Edit access: all members can rename/re-icon the project and manage pages. */
+function canEditProject(project: Project, user: HypersetUser): boolean {
+  return user.isAdmin || project.createdBy === user.email || project.allowedEmails.includes(user.email);
 }
 
 /** GET /api/admin/projects — list projects visible to the caller */
@@ -127,11 +133,14 @@ export async function PATCH(request: NextRequest) {
       return NextResponse.json({ error: "Project not found" }, { status: 404 });
     }
 
-    if (!canManageProject(project, user)) {
+    if (!canEditProject(project, user)) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
-    let updatedEmails: string[] | undefined = Array.isArray(body.allowedEmails) ? [...body.allowedEmails] : undefined;
+    // Only the creator and admins may change project membership
+    let updatedEmails: string[] | undefined = canManageProject(project, user) && Array.isArray(body.allowedEmails)
+      ? [...body.allowedEmails]
+      : undefined;
     // Protect creator: ensure their email is never removed from the list
     if (updatedEmails !== undefined && project.createdBy && !updatedEmails.includes(project.createdBy)) {
       updatedEmails.push(project.createdBy);

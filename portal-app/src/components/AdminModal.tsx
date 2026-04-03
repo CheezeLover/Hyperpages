@@ -296,7 +296,10 @@ function ProjectsTab({ userEmail, isAdmin, onPageFilesChanged }: { userEmail: st
   const canManagePage = (page: PageInfo): boolean => {
     if (isAdmin) return true;
     if (page.createdBy === userEmail) return true;
-    if (page.projectId) return projects.find((p) => p.id === page.projectId)?.createdBy === userEmail;
+    if (page.projectId) {
+      const proj = projects.find((p) => p.id === page.projectId);
+      return proj?.createdBy === userEmail || (proj?.allowedEmails.includes(userEmail) ?? false);
+    }
     return false;
   };
 
@@ -514,7 +517,8 @@ function ProjectsTab({ userEmail, isAdmin, onPageFilesChanged }: { userEmail: st
       ) : (
         <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
           {projects.map((project) => {
-            const canManageProject = isAdmin || project.createdBy === userEmail;
+            const canManageProject = isAdmin || project.createdBy === userEmail || project.allowedEmails.includes(userEmail);
+            const canDeleteProject = isAdmin || project.createdBy === userEmail;
             const projectPages = pages.filter((p) => p.projectId === project.id).sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
 
             return (
@@ -540,16 +544,18 @@ function ProjectsTab({ userEmail, isAdmin, onPageFilesChanged }: { userEmail: st
                       </div>
                     )}
 
-                    {/* Edit access */}
-                    <div>
-                      <label style={label}>Edit Access — Emails</label>
-                      <textarea value={editEmails} onChange={(e) => setEditEmails(e.target.value)} placeholder="email1@ex.com, email2@ex.com" rows={2} style={{ ...input, resize: "vertical", fontFamily: "inherit" }} />
-                      {project.secure && (
-                        <p style={{ fontSize: 11, opacity: 0.45, color: "var(--md-on-surface)", margin: "4px 0 0" }}>
-                          Only emails from the same domain as the project creator are allowed.
-                        </p>
-                      )}
-                    </div>
+                    {/* Edit access — only creator/admin can change membership */}
+                    {(isAdmin || project.createdBy === userEmail) && (
+                      <div>
+                        <label style={label}>Edit Access — Emails</label>
+                        <textarea value={editEmails} onChange={(e) => setEditEmails(e.target.value)} placeholder="email1@ex.com, email2@ex.com" rows={2} style={{ ...input, resize: "vertical", fontFamily: "inherit" }} />
+                        {project.secure && (
+                          <p style={{ fontSize: 11, opacity: 0.45, color: "var(--md-on-surface)", margin: "4px 0 0" }}>
+                            Only emails from the same domain as the project creator are allowed.
+                          </p>
+                        )}
+                      </div>
+                    )}
 
                     {/* Guest codes section */}
                     <div style={{ borderTop: "1px solid var(--md-outline-var)", paddingTop: 16 }}>
@@ -672,7 +678,7 @@ function ProjectsTab({ userEmail, isAdmin, onPageFilesChanged }: { userEmail: st
                       {canManageProject && (
                         <div style={{ display: "flex", gap: 6, flexShrink: 0 }}>
                           <button onClick={() => openEditProject(project)} style={{ ...btnSecondary, padding: "5px 12px", fontSize: 12 }}>Edit</button>
-                          {deletingProject === project.id ? (
+                          {canDeleteProject && (deletingProject === project.id ? (
                             <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
                               <span style={{ fontSize: 12, color: "#ef4444" }}>Delete?</span>
                               <button onClick={() => handleDeleteProject(project.id)} disabled={deletingProjectLoading} style={{ ...btnDanger, padding: "5px 10px", opacity: deletingProjectLoading ? 0.6 : 1 }}>{deletingProjectLoading ? "…" : "Yes"}</button>
@@ -680,7 +686,7 @@ function ProjectsTab({ userEmail, isAdmin, onPageFilesChanged }: { userEmail: st
                             </div>
                           ) : (
                             <button onClick={() => setDeletingProject(project.id)} style={{ ...btnDanger, padding: "5px 10px" }}>Remove</button>
-                          )}
+                          ))}
                         </div>
                       )}
                     </div>

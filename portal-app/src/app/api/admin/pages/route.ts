@@ -25,7 +25,8 @@ async function canManagePage(pageName: string, user: HypersetUser): Promise<bool
   if (!settings.projectId) return false;
   const allProjects = await getAllProjects();
   const project = allProjects.find((p) => p.id === settings.projectId);
-  return project?.createdBy === user.email;
+  if (!project) return false;
+  return project.createdBy === user.email || project.allowedEmails.includes(user.email);
 }
 
 function scanPagesDir(): { name: string; hasBackend: boolean }[] {
@@ -109,8 +110,8 @@ export async function POST(request: NextRequest) {
     const allProjects = await getAllProjects();
     const project = allProjects.find((p) => p.id === projectId);
     if (!project) return NextResponse.json({ error: "Project not found" }, { status: 400 });
-    if (!user.isAdmin && project.createdBy !== user.email) {
-      return NextResponse.json({ error: "Forbidden: you can only add pages to your own projects" }, { status: 403 });
+    if (!user.isAdmin && project.createdBy !== user.email && !project.allowedEmails.includes(user.email)) {
+      return NextResponse.json({ error: "Forbidden: you must be a member of the project to add pages" }, { status: 403 });
     }
 
     const pageDir = path.join(PAGES_DIR, name);
