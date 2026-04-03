@@ -268,14 +268,15 @@ export async function PATCH(request: NextRequest) {
     // newName is always the display name (last segment only).
     // The full name preserves the project prefix if present.
     const displayNewName = newName?.trim();
-    const currentDisplayName = name.split("/").pop()!;
+    const parts = name.split("/");
+    const currentDisplayName = parts[parts.length - 1];
     const targetName = (displayNewName && displayNewName !== currentDisplayName) ? displayNewName : null;
     let targetFullName: string | null = null;
     if (targetName !== null) {
       if (!/^[a-zA-Z0-9_-]+$/.test(targetName)) {
         return NextResponse.json({ error: "Page name must contain only letters, numbers, underscores and hyphens" }, { status: 400 });
       }
-      const prefix = name.includes("/") ? name.split("/").slice(0, -1).join("/") + "/" : "";
+      const prefix = parts.length > 1 ? parts.slice(0, -1).join("/") + "/" : "";
       targetFullName = prefix + targetName;
       const newDirPath = resolvePageDir(targetFullName);
       if (fs.existsSync(newDirPath)) {

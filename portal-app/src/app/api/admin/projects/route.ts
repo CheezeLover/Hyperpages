@@ -30,6 +30,12 @@ function canEditProject(project: Project, user: HypersetUser): boolean {
   return user.isAdmin || project.createdBy === user.email || project.allowedEmails.includes(user.email);
 }
 
+function validateSecureDomain(creatorEmail: string, memberEmails: string[]): string | null {
+  const domain = creatorEmail.split("@")[1]?.toLowerCase();
+  const offending = memberEmails.filter((e) => e.split("@")[1]?.toLowerCase() !== domain);
+  return offending.length > 0 ? `Secure projects only allow members from the @${domain} domain.` : null;
+}
+
 /** GET /api/admin/projects — list projects visible to the caller */
 export async function GET(request: NextRequest) {
   const denied = requireAuth(request);
@@ -77,14 +83,8 @@ export async function POST(request: NextRequest) {
 
     // Secure projects: all member emails must share the creator's domain
     if (body.secure === true) {
-      const creatorDomain = user.email.split("@")[1]?.toLowerCase();
-      const offending = allowedEmails.filter((e) => e.split("@")[1]?.toLowerCase() !== creatorDomain);
-      if (offending.length > 0) {
-        return NextResponse.json(
-          { error: `Secure projects only allow members from the @${creatorDomain} domain.` },
-          { status: 400 },
-        );
-      }
+      const err = validateSecureDomain(user.email, allowedEmails);
+      if (err) return NextResponse.json({ error: err }, { status: 400 });
     }
 
     const project = await createProject({
@@ -148,14 +148,8 @@ export async function PATCH(request: NextRequest) {
 
     // Secure projects: all member emails must share the creator's domain
     if (project.secure && updatedEmails !== undefined) {
-      const creatorDomain = project.createdBy.split("@")[1]?.toLowerCase();
-      const offending = updatedEmails.filter((e) => e.split("@")[1]?.toLowerCase() !== creatorDomain);
-      if (offending.length > 0) {
-        return NextResponse.json(
-          { error: `Secure projects only allow members from the @${creatorDomain} domain.` },
-          { status: 400 },
-        );
-      }
+      const err = validateSecureDomain(project.createdBy, updatedEmails);
+      if (err) return NextResponse.json({ error: err }, { status: 400 });
     }
 
     await updateProject(id, {

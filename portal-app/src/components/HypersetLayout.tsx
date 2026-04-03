@@ -13,7 +13,7 @@ interface Page {
 
 interface PageApiItem {
   name: string;
-  displayName?: string;
+  displayName: string;
   active?: boolean;
   projectId?: string;
   order?: number;
@@ -89,7 +89,7 @@ export function HypersetLayout({ pagesUrl, isAdmin, userEmail, canAccessAdmin, i
     const filtered = allPages
       .filter((p) => p.projectId === selectedProjectId && p.active !== false)
       .sort((a, b) => (a.order ?? 0) - (b.order ?? 0))
-      .map((p) => ({ name: p.name, displayName: p.displayName ?? p.name.split("/").pop() ?? p.name, icon: p.icon, iconColor: p.iconColor }));
+      .map((p) => ({ name: p.name, displayName: p.displayName, icon: p.icon, iconColor: p.iconColor }));
 
     // Avoid re-renders when the visible list hasn't changed
     setPages((prev) => {
