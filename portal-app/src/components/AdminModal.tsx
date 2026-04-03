@@ -143,13 +143,13 @@ function PageInlineEditor({ page, onClose, onSaved, onFilesReplaced }: {
           </div>
         </div>
         <div style={{ display: "flex", gap: 10 }}>
-          <div style={{ flex: 1 }}>
+          <div style={{ flex: 1, minWidth: 0 }}>
             <label style={label}>Replace HTML</label>
-            <input type="file" accept=".html" onChange={(e) => setEditHtmlFile(e.target.files?.[0] ?? null)} style={{ fontSize: 12, color: "var(--md-on-surface)", width: "100%" }} />
+            <input type="file" accept=".html" onChange={(e) => setEditHtmlFile(e.target.files?.[0] ?? null)} style={{ fontSize: 12, color: "var(--md-on-surface)", maxWidth: "100%" }} />
           </div>
-          <div style={{ flex: 1 }}>
+          <div style={{ flex: 1, minWidth: 0 }}>
             <label style={label}>Replace Backend</label>
-            <input type="file" accept=".py" onChange={(e) => setEditBackendFile(e.target.files?.[0] ?? null)} style={{ fontSize: 12, color: "var(--md-on-surface)", width: "100%" }} />
+            <input type="file" accept=".py" onChange={(e) => setEditBackendFile(e.target.files?.[0] ?? null)} style={{ fontSize: 12, color: "var(--md-on-surface)", maxWidth: "100%" }} />
           </div>
         </div>
         {page.hasBackend && (
@@ -682,7 +682,7 @@ function ProjectsTab({ userEmail, isAdmin, onPageFilesChanged }: { userEmail: st
 
                                     <button
                                       onClick={() => setEditingPage(isEditingThisPage ? null : page.name)}
-                                      style={{ ...btnSecondary, padding: "4px 10px", fontSize: 11, background: isEditingThisPage ? "var(--md-primary)" : undefined, color: isEditingThisPage ? "#fff" : undefined, border: isEditingThisPage ? "none" : undefined }}
+                                      style={{ background: isEditingThisPage ? "var(--md-primary)" : "transparent", color: isEditingThisPage ? "#fff" : "var(--md-on-surface)", border: "none", borderRadius: 7, padding: "4px 10px", fontSize: 11, fontWeight: 500, cursor: "pointer", opacity: isEditingThisPage ? 1 : 0.55 }}
                                     >
                                       {isEditingThisPage ? "Close" : "Edit"}
                                     </button>
