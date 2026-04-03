@@ -824,15 +824,27 @@ export function AdminModal({ onClose, userEmail, isAdmin, selectedProjectId, onS
   const [searchOpen, setSearchOpen] = React.useState(false);
   const [searchQuery, setSearchQuery] = React.useState("");
   const searchRef = React.useRef<HTMLInputElement>(null);
+  const headerRef = React.useRef<HTMLDivElement>(null);
 
   const filteredProjects = searchQuery.trim()
     ? projects.filter((p) => p.name.toLowerCase().includes(searchQuery.toLowerCase()))
     : projects;
 
+  const closeSearch = React.useCallback(() => { setSearchOpen(false); setSearchQuery(""); }, []);
+
   const handleToggleSearch = () => {
-    if (searchOpen) { setSearchOpen(false); setSearchQuery(""); }
+    if (searchOpen) { closeSearch(); }
     else { setSearchOpen(true); setTimeout(() => searchRef.current?.focus(), 0); }
   };
+
+  React.useEffect(() => {
+    if (!searchOpen) return;
+    const handleMouseDown = (e: MouseEvent) => {
+      if (headerRef.current && !headerRef.current.contains(e.target as Node)) closeSearch();
+    };
+    document.addEventListener("mousedown", handleMouseDown);
+    return () => document.removeEventListener("mousedown", handleMouseDown);
+  }, [searchOpen, closeSearch]);
 
   return (
     <>
@@ -840,7 +852,7 @@ export function AdminModal({ onClose, userEmail, isAdmin, selectedProjectId, onS
       <div style={{ display: "flex", flexDirection: "column", height: "100%", background: "var(--md-surface-cont)", overflow: "hidden" }}>
 
         {/* Header */}
-        <div style={{ display: "flex", alignItems: "center", padding: "14px 20px", gap: 10, borderBottom: "1px solid var(--md-outline-var)", flexShrink: 0 }}>
+        <div ref={headerRef} style={{ display: "flex", alignItems: "center", padding: "14px 20px", gap: 10, borderBottom: "1px solid var(--md-outline-var)", flexShrink: 0 }}>
           <div style={{ width: 28, height: 28, borderRadius: 4, background: "var(--md-primary)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
             <svg viewBox="0 0 24 24" width={14} height={14} fill="white"><path d="M3 18h18v-2H3v2zm0-5h18v-2H3v2zm0-7v2h18V6H3z"/></svg>
           </div>
@@ -855,15 +867,11 @@ export function AdminModal({ onClose, userEmail, isAdmin, selectedProjectId, onS
           ) : (
             <span style={{ fontSize: 14, fontWeight: 700, color: "var(--md-on-surface)", letterSpacing: "-0.01em" }}>Admin</span>
           )}
-          <button onClick={handleToggleSearch} title={searchOpen ? "Close search" : "Search projects"}
+          <button onClick={handleToggleSearch} title="Search projects"
             style={{ marginLeft: searchOpen ? 0 : "auto", background: "none", border: "none", cursor: "pointer", color: "var(--md-on-surface)", opacity: searchOpen ? 0.7 : 0.35, display: "flex", alignItems: "center", padding: "4px 6px", borderRadius: 4 }}>
-            {searchOpen ? (
-              <svg viewBox="0 0 24 24" width={16} height={16} fill="currentColor"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
-            ) : (
-              <svg viewBox="0 0 24 24" width={16} height={16} fill="currentColor"><path d="M15.5 14h-.79l-.28-.27A6.471 6.471 0 0 0 16 9.5 6.5 6.5 0 1 0 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/></svg>
-            )}
+            <svg viewBox="0 0 24 24" width={16} height={16} fill="currentColor"><path d="M15.5 14h-.79l-.28-.27A6.471 6.471 0 0 0 16 9.5 6.5 6.5 0 1 0 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/></svg>
           </button>
-          {!searchOpen && <button onClick={onClose} style={{ background: "none", border: "none", cursor: "pointer", color: "var(--md-on-surface)", opacity: 0.35, fontSize: 20, lineHeight: 1, padding: "2px 6px", borderRadius: 6 }}>×</button>}
+          <button onClick={onClose} style={{ background: "none", border: "none", cursor: "pointer", color: "var(--md-on-surface)", opacity: 0.35, fontSize: 20, lineHeight: 1, padding: "2px 6px", borderRadius: 6 }}>×</button>
         </div>
 
         {/* Active project selector */}
