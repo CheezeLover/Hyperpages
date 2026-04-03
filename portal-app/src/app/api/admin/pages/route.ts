@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getUserFromRequest, type HypersetUser } from "@/lib/auth";
-import { getAllPageSettings, setPageSettings, deletePageSettings, getPageSettings, type PageSettings } from "@/lib/page-settings";
+import { getAllPageSettings, setPageSettings, deletePageSettings, getPageSettings } from "@/lib/page-settings";
 import { getAllProjects } from "@/lib/project-settings";
 import fs from "fs";
 import path from "path";
@@ -219,8 +219,9 @@ export async function PATCH(request: NextRequest) {
     }
 
     // ── Single page update ────────────────────────────────────────────────────
-    const { name, active, projectId, order, icon, iconColor } = body as {
+    const { name, newName, active, projectId, order, icon, iconColor } = body as {
       name: string;
+      newName?: string;
       active?: boolean;
       projectId?: string;
       order?: number;
@@ -237,16 +238,39 @@ export async function PATCH(request: NextRequest) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
-    const current = (await getAllPageSettings())[name] ?? {};
-    await setPageSettings(name, {
+    // ── Rename: move filesystem directory + migrate settings ─────────────────
+    const targetName = (newName?.trim() && newName.trim() !== name) ? newName.trim() : null;
+    if (targetName !== null) {
+      if (!/^[a-zA-Z0-9_-]+$/.test(targetName)) {
+        return NextResponse.json({ error: "Page name must contain only letters, numbers, underscores and hyphens" }, { status: 400 });
+      }
+      const newDir = path.join(PAGES_DIR, targetName);
+      if (fs.existsSync(newDir)) {
+        return NextResponse.json({ error: `A page named "${targetName}" already exists` }, { status: 409 });
+      }
+      fs.renameSync(path.join(PAGES_DIR, name), newDir);
+    }
+
+    const finalName = targetName ?? name;
+    const all = await getAllPageSettings();
+    const current = all[name] ?? {};
+    const updatedSettings = {
       active: active !== undefined ? active : (current.active ?? true),
       projectId: projectId !== undefined ? projectId : current.projectId,
       order: order !== undefined ? order : (current.order ?? 0),
       icon: icon !== undefined ? icon : current.icon,
       iconColor: iconColor !== undefined ? iconColor : current.iconColor,
       createdBy: current.createdBy,
-    });
-    return NextResponse.json({ ok: true });
+    };
+
+    if (targetName !== null) {
+      // Write under new key, remove old key
+      await setPageSettings(finalName, updatedSettings);
+      await deletePageSettings(name);
+    } else {
+      await setPageSettings(finalName, updatedSettings);
+    }
+    return NextResponse.json({ ok: true, name: finalName });
   } catch (e) {
     console.error("[admin/pages] Failed to update page:", e);
     return NextResponse.json({ error: "Failed to update page" }, { status: 500 });

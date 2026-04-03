@@ -96,6 +96,7 @@ function Badge({ children, color = "default" }: { children: React.ReactNode; col
 function PageInlineEditor({ page, onClose, onSaved, onFilesReplaced }: {
   page: PageInfo; onClose: () => void; onSaved: () => void; onFilesReplaced?: () => void;
 }) {
+  const [editName, setEditName] = useState(page.name);
   const [editIcon, setEditIcon] = useState(page.icon || "");
   const [editIconColor, setEditIconColor] = useState(page.iconColor || "");
   const [editHtmlFile, setEditHtmlFile] = useState<File | null>(null);
@@ -105,6 +106,9 @@ function PageInlineEditor({ page, onClose, onSaved, onFilesReplaced }: {
   const [error, setError] = useState("");
 
   const handleSave = async () => {
+    const trimmedName = editName.trim();
+    if (!trimmedName) { setError("Page name cannot be empty"); return; }
+    if (!/^[a-zA-Z0-9_-]+$/.test(trimmedName)) { setError("Page name must contain only letters, numbers, underscores and hyphens"); return; }
     setSaving(true); setError("");
     try {
       if (editHtmlFile || editBackendFile || removeBackend) {
@@ -119,7 +123,12 @@ function PageInlineEditor({ page, onClose, onSaved, onFilesReplaced }: {
       }
       const res = await fetch("/api/admin/pages", {
         method: "PATCH", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name: page.name, icon: editIcon.trim() || undefined, iconColor: editIconColor.trim() || undefined }),
+        body: JSON.stringify({
+          name: page.name,
+          ...(trimmedName !== page.name ? { newName: trimmedName } : {}),
+          icon: editIcon.trim() || undefined,
+          iconColor: editIconColor.trim() || undefined,
+        }),
       });
       if (!res.ok) throw new Error(((await res.json()) as { error?: string }).error ?? "Update failed");
       onSaved(); onClose();
@@ -132,6 +141,11 @@ function PageInlineEditor({ page, onClose, onSaved, onFilesReplaced }: {
     <div style={{ padding: "14px 20px 16px", background: "var(--md-surface-cont)", borderTop: "1px solid var(--md-outline-var)" }}>
       {error && <div style={{ marginBottom: 12 }}><ErrorBanner msg={error} /></div>}
       <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+        <div>
+          <label style={label}>Page Name</label>
+          <input type="text" value={editName} onChange={(e) => setEditName(e.target.value)} placeholder={page.name} style={input} />
+          <p style={{ fontSize: 11, opacity: 0.45, color: "var(--md-on-surface)", margin: "4px 0 0" }}>Letters, numbers, hyphens, underscores</p>
+        </div>
         <div style={{ display: "flex", gap: 10 }}>
           <div style={{ flex: 1 }}>
             <label style={label}>Icon</label>
