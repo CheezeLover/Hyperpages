@@ -92,6 +92,31 @@ function Badge({ children, color = "default" }: { children: React.ReactNode; col
   );
 }
 
+// ── File picker ────────────────────────────────────────────────────────────────
+function FilePicker({ accept, placeholder, file, onChange }: {
+  accept: string; placeholder: string; file: File | null; onChange: (f: File | null) => void;
+}) {
+  const ref = React.useRef<HTMLInputElement>(null);
+  return (
+    <div>
+      <input ref={ref} type="file" accept={accept} style={{ display: "none" }}
+        onChange={(e) => onChange(e.target.files?.[0] ?? null)} />
+      {file ? (
+        <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "7px 12px", background: "var(--md-surface)", border: "1px solid var(--md-outline-var)", borderRadius: 8, fontSize: 12, color: "var(--md-on-surface)" }}>
+          <span style={{ flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{file.name}</span>
+          <button onClick={() => { onChange(null); if (ref.current) ref.current.value = ""; }}
+            style={{ background: "none", border: "none", cursor: "pointer", padding: 0, color: "var(--md-on-surface)", opacity: 0.45, fontSize: 14, lineHeight: 1 }}>✕</button>
+        </div>
+      ) : (
+        <button onClick={() => ref.current?.click()}
+          style={{ background: "none", border: "1px dashed var(--md-outline-var)", borderRadius: 8, padding: "7px 0", fontSize: 12, color: "var(--md-on-surface)", opacity: 0.45, cursor: "pointer", width: "100%", textAlign: "center" }}>
+          + {placeholder}
+        </button>
+      )}
+    </div>
+  );
+}
+
 // ── Inline Page Editor ─────────────────────────────────────────────────────────
 function PageInlineEditor({ page, onClose, onSaved, onFilesReplaced }: {
   page: PageInfo; onClose: () => void; onSaved: () => void; onFilesReplaced?: () => void;
@@ -160,11 +185,11 @@ function PageInlineEditor({ page, onClose, onSaved, onFilesReplaced }: {
         </div>
         <div>
           <label style={label}>Replace HTML</label>
-          <input type="file" accept=".html" onChange={(e) => setEditHtmlFile(e.target.files?.[0] ?? null)} style={{ fontSize: 12, color: "var(--md-on-surface)" }} />
+          <FilePicker accept=".html" placeholder="Choose HTML file" file={editHtmlFile} onChange={setEditHtmlFile} />
         </div>
         <div>
           <label style={label}>Replace Backend</label>
-          <input type="file" accept=".py" onChange={(e) => setEditBackendFile(e.target.files?.[0] ?? null)} style={{ fontSize: 12, color: "var(--md-on-surface)" }} />
+          <FilePicker accept=".py" placeholder="Choose Python file" file={editBackendFile} onChange={setEditBackendFile} />
         </div>
         {page.hasBackend && (
           <label style={{ display: "flex", alignItems: "center", gap: 8, cursor: "pointer" }}>
@@ -226,11 +251,11 @@ function UploadForm({ projectId, onClose, onUploaded }: { projectId: string; onC
         </div>
         <div>
           <label style={label}>HTML File *</label>
-          <input type="file" accept=".html" onChange={(e) => setHtmlFile(e.target.files?.[0] ?? null)} style={{ fontSize: 12, color: "var(--md-on-surface)" }} />
+          <FilePicker accept=".html" placeholder="Choose HTML file" file={htmlFile} onChange={setHtmlFile} />
         </div>
         <div>
           <label style={label}>Backend (optional Python)</label>
-          <input type="file" accept=".py" onChange={(e) => setBackendFile(e.target.files?.[0] ?? null)} style={{ fontSize: 12, color: "var(--md-on-surface)" }} />
+          <FilePicker accept=".py" placeholder="Choose Python file" file={backendFile} onChange={setBackendFile} />
         </div>
         <div style={{ display: "flex", gap: 8 }}>
           <button onClick={handleUpload} disabled={uploading} style={{ ...btnPrimary, padding: "8px 16px", fontSize: 12, opacity: uploading ? 0.6 : 1 }}>{uploading ? "Uploading…" : "Upload"}</button>
