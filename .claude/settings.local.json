@@ -19,7 +19,8 @@
       "Bash(grep -r secure '/c/Users/VincentCROISE/OneDrive - Ginesis Finance/Documents/GitHub/Hyperpages' --include=*.md --include=*.json --include=*.py)",
       "Bash(npx tsc:*)",
       "Bash(node_modules/.bin/tsc --noEmit)",
-      "Bash(grep -r iframe 'C:\\\\Users\\\\VincentCROISE\\\\OneDrive - Ginesis Finance\\\\Documents\\\\GitHub\\\\Hyperpages\\\\portal-app\\\\src' --include=*.tsx --include=*.ts)"
+      "Bash(grep -r iframe 'C:\\\\Users\\\\VincentCROISE\\\\OneDrive - Ginesis Finance\\\\Documents\\\\GitHub\\\\Hyperpages\\\\portal-app\\\\src' --include=*.tsx --include=*.ts)",
+      "Bash(find '/c/Users/VincentCROISE/OneDrive - Ginesis Finance/Documents/GitHub/Hyperpages' -type f -name Caddyfile -o -name *middleware* -o -name *rate*)"
     ]
   }
 }

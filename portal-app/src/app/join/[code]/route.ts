@@ -1,11 +1,22 @@
 import { type NextRequest, NextResponse } from "next/server";
 import { getAccessCodeByHash, hashCode, issueGuestJWT } from "@/lib/access-codes";
 import { getProject } from "@/lib/project-settings";
+import { checkRateLimit } from "@/lib/utils";
+
+// IP-based rate limit: 10 attempts per 15 minutes per IP.
+// Defense-in-depth behind the Caddy rate_limit layer.
+const joinRateLimitMap = new Map<string, number[]>();
 
 export async function GET(
-  _request: NextRequest,
+  request: NextRequest,
   { params }: { params: Promise<{ code: string }> },
 ) {
+  const ip =
+    request.headers.get("x-forwarded-for")?.split(",")[0].trim() ?? "unknown";
+  if (!checkRateLimit(joinRateLimitMap, 10, 15 * 60 * 1000, ip)) {
+    return new NextResponse("Too Many Requests", { status: 429 });
+  }
+
   const { code } = await params;
   const domain = (process.env.HYPERSET_DOMAIN || "").trim() || "hyperset.internal";
   const externalOrigin = `https://${domain}`;
