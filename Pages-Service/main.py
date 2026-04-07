@@ -248,11 +248,25 @@ _ARROW_RELAY = (
     "var _s=document.createElement('style');"
     "_s.textContent='*,*::before,*::after{cursor:none!important}';"
     "document.head.appendChild(_s);"
-    # Arrow-key relay (capture phase so nothing inside can swallow them first)
+    # Arrow-key relay: Up/Down go up to the parent for page navigation.
+    # Left/Right stay in the page — a guard flag prevents re-dispatched
+    # events from echoing back up and causing an infinite loop.
+    "var _fwd=false;"
     "window.addEventListener('keydown',function(e){"
-    "if(['ArrowLeft','ArrowRight','ArrowUp','ArrowDown'].indexOf(e.key)!==-1){"
+    "if(_fwd)return;"
+    "if(['ArrowUp','ArrowDown'].indexOf(e.key)!==-1){"
     "try{window.parent.postMessage({type:'hyperset-keydown',key:e.key},'*');}catch(err){}"
     "}},true);"
+    # Receive Left/Right forwarded from the parent and re-dispatch as a real
+    # KeyboardEvent so the page's own handlers (carousels, slideshows…) pick it up.
+    "window.addEventListener('message',function(e){"
+    "if(!e.data||e.data.type!=='hyperset-keydown')return;"
+    "var k=e.data.key;"
+    "if(k!=='ArrowLeft'&&k!=='ArrowRight')return;"
+    "_fwd=true;"
+    "document.dispatchEvent(new KeyboardEvent('keydown',{key:k,code:k==='ArrowLeft'?'ArrowLeft':'ArrowRight',bubbles:true,cancelable:true}));"
+    "_fwd=false;"
+    "});"
     # Mouse-position relay — throttled to one message per animation frame
     "var _raf=null;"
     "window.addEventListener('mousemove',function(e){"
