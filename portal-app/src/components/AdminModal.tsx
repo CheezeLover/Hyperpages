@@ -483,7 +483,7 @@ function ProjectsTab({ userEmail, isAdmin, onPageFilesChanged, searchQuery }: { 
       {error && <div style={{ padding: "16px 20px 0" }}><ErrorBanner msg={error} /></div>}
 
       {/* Header row */}
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "20px 20px 14px" }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "16px 12px 12px" }}>
         <div>
           <div style={{ fontSize: 16, fontWeight: 700, color: "var(--md-on-surface)", letterSpacing: "-0.01em" }}>Projects</div>
           <div style={{ fontSize: 12, color: "var(--md-on-surface)", opacity: 0.4, marginTop: 2 }}>{projects.length} project{projects.length !== 1 ? "s" : ""}</div>
@@ -511,7 +511,7 @@ function ProjectsTab({ userEmail, isAdmin, onPageFilesChanged, searchQuery }: { 
 
       {/* Create project form */}
       {showCreate && (
-        <div style={{ padding: "0 20px 16px" }}>
+        <div style={{ padding: "0 12px 16px" }}>
           <div style={{ ...card, padding: 20 }}>
             <div style={{ fontSize: 13, fontWeight: 700, color: "var(--md-on-surface)", marginBottom: 18, letterSpacing: "-0.01em" }}>New project</div>
             <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
@@ -556,7 +556,7 @@ function ProjectsTab({ userEmail, isAdmin, onPageFilesChanged, searchQuery }: { 
           {projects.length === 0 ? "No projects yet. Create one to get started." : "No projects match your search."}
         </div>
       ) : (
-        <div style={{ display: "flex", flexDirection: "column", gap: 10, padding: "4px 20px 20px" }}>
+        <div style={{ display: "flex", flexDirection: "column", gap: 10, padding: "4px 12px 20px" }}>
           {visibleProjects.map((project) => {
             const canManageProject = isAdmin || project.createdBy === userEmail || project.allowedEmails.includes(userEmail);
             const canDeleteProject = isAdmin || project.createdBy === userEmail;
@@ -892,8 +892,7 @@ export function AdminModal({ onClose, userEmail, isAdmin, selectedProjectId, onS
         {projects.length > 0 && (
           <div style={{ padding: "10px 12px 12px", borderBottom: "1px solid var(--md-outline-var)", flexShrink: 0, background: "var(--md-surface)" }}>
             <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: "0.09em", textTransform: "uppercase", color: "var(--md-on-surface)", opacity: 0.35, marginBottom: 10 }}>Active project</div>
-            <style>{`.admin-chips::-webkit-scrollbar{display:none}`}</style>
-            <div className="admin-chips" style={{ display: "flex", flexWrap: "nowrap", gap: 6, overflowX: "auto", paddingBottom: 2, scrollbarWidth: "none", WebkitOverflowScrolling: "touch" } as React.CSSProperties}>
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 6, maxHeight: 80, overflowY: "auto", WebkitOverflowScrolling: "touch" } as React.CSSProperties}>
               {filteredProjects.map((p) => {
                 const isActive = p.id === selectedProjectId;
                 return (
