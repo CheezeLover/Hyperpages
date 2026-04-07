@@ -142,14 +142,14 @@ export function HypersetLayout({ pagesUrl, isAdmin, userEmail, canAccessAdmin, i
 
   const navigateByKey = useCallback((key: string) => {
     const ps = pagesRef.current;
-    if (key === "ArrowDown") {
+    if (key === "ArrowRight" || key === "ArrowDown") {
       setSelectedPage((current) => {
         if (ps.length === 0) return null;
         if (!current) return ps[0];
         const idx = ps.findIndex((p) => p.name === current.name);
         return idx < ps.length - 1 ? ps[idx + 1] : current;
       });
-    } else if (key === "ArrowUp") {
+    } else if (key === "ArrowLeft" || key === "ArrowUp") {
       setSelectedPage((current) => {
         if (ps.length === 0) return null;
         if (!current) return ps[0];
@@ -169,7 +169,7 @@ export function HypersetLayout({ pagesUrl, isAdmin, userEmail, canAccessAdmin, i
       const tag = (e.target as HTMLElement).tagName;
       if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return;
       if ((e.target as HTMLElement).isContentEditable) return;
-      if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+      if (e.key === "ArrowRight" || e.key === "ArrowDown" || e.key === "ArrowLeft" || e.key === "ArrowUp") {
         e.preventDefault();
         navigateByKey(e.key);
       }
