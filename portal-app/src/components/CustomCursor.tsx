@@ -9,19 +9,23 @@ export function CustomCursor() {
     const cursor = cursorRef.current;
     if (!cursor) return;
 
+    let isClicked = false;
+
     const move = (e: MouseEvent) => {
       cursor.style.left = `${e.clientX}px`;
       cursor.style.top = `${e.clientY}px`;
     };
 
     const down = () => {
+      isClicked = true;
       cursor.style.transform = 'translate(-50%, -50%) scale(0.8)';
-      cursor.style.background = 'var(--theme-primary)';
+      cursor.style.background = 'var(--md-primary)';
     };
 
     const up = () => {
+      isClicked = false;
       cursor.style.transform = 'translate(-50%, -50%) scale(1)';
-      cursor.style.background = 'rgba(255,255,255,0.8)';
+      cursor.style.background = 'var(--md-on-surface)';
     };
 
     window.addEventListener('mousemove', move);
@@ -43,7 +47,7 @@ export function CustomCursor() {
         width: '16px',
         height: '16px',
         borderRadius: '50%',
-        background: 'rgba(255,255,255,0.8)',
+        background: 'var(--md-on-surface)',
         pointerEvents: 'none',
         zIndex: 9999,
         transform: 'translate(-50%, -50%)',
