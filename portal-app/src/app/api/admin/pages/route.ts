@@ -8,6 +8,7 @@ import { checkRateLimit } from "@/lib/utils";
 
 const PAGES_DIR = process.env.PAGES_DIR ?? path.join(process.cwd(), "pages");
 
+const _rateLimitMap = new Map<string, number[]>();
 const RATE_LIMIT = 60;        // requests per user per window
 const RATE_WINDOW = 60_000;   // 1 minute
 
@@ -77,7 +78,7 @@ export async function GET(request: NextRequest) {
   if (denied) return denied;
 
   const { email } = getUserFromRequest(request);
-  if (!checkRateLimit(RATE_LIMIT, RATE_WINDOW, email)) {
+  if (!checkRateLimit(_rateLimitMap, RATE_LIMIT, RATE_WINDOW, email)) {
     return NextResponse.json({ error: "Rate limit exceeded" }, { status: 429 });
   }
 
@@ -105,7 +106,7 @@ export async function POST(request: NextRequest) {
   if (denied) return denied;
 
   const user = getUserFromRequest(request);
-  if (!checkRateLimit(RATE_LIMIT, RATE_WINDOW, user.email)) {
+  if (!checkRateLimit(_rateLimitMap, RATE_LIMIT, RATE_WINDOW, user.email)) {
     return NextResponse.json({ error: "Rate limit exceeded" }, { status: 429 });
   }
 
@@ -172,7 +173,7 @@ export async function PUT(request: NextRequest) {
   if (denied) return denied;
 
   const user = getUserFromRequest(request);
-  if (!checkRateLimit(RATE_LIMIT, RATE_WINDOW, user.email)) {
+  if (!checkRateLimit(_rateLimitMap, RATE_LIMIT, RATE_WINDOW, user.email)) {
     return NextResponse.json({ error: "Rate limit exceeded" }, { status: 429 });
   }
 
@@ -221,7 +222,7 @@ export async function PATCH(request: NextRequest) {
   if (denied) return denied;
 
   const user = getUserFromRequest(request);
-  if (!checkRateLimit(RATE_LIMIT, RATE_WINDOW, user.email)) {
+  if (!checkRateLimit(_rateLimitMap, RATE_LIMIT, RATE_WINDOW, user.email)) {
     return NextResponse.json({ error: "Rate limit exceeded" }, { status: 429 });
   }
 
@@ -322,7 +323,7 @@ export async function DELETE(request: NextRequest) {
   if (denied) return denied;
 
   const user = getUserFromRequest(request);
-  if (!checkRateLimit(RATE_LIMIT, RATE_WINDOW, user.email)) {
+  if (!checkRateLimit(_rateLimitMap, RATE_LIMIT, RATE_WINDOW, user.email)) {
     return NextResponse.json({ error: "Rate limit exceeded" }, { status: 429 });
   }
 

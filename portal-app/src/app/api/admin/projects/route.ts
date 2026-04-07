@@ -10,6 +10,7 @@ import {
 } from "@/lib/project-settings";
 import { checkRateLimit } from "@/lib/utils";
 
+const _rateLimitMap = new Map<string, number[]>();
 const RATE_LIMIT = 20;
 const RATE_WINDOW = 60_000;
 
@@ -41,7 +42,7 @@ export async function GET(request: NextRequest) {
   if (denied) return denied;
 
   const user = getUserFromRequest(request);
-  if (!checkRateLimit(RATE_LIMIT, RATE_WINDOW, user.email)) {
+  if (!checkRateLimit(_rateLimitMap, RATE_LIMIT, RATE_WINDOW, user.email)) {
     return NextResponse.json({ error: "Rate limit exceeded" }, { status: 429 });
   }
 
@@ -56,7 +57,7 @@ export async function POST(request: NextRequest) {
   if (denied) return denied;
 
   const user = getUserFromRequest(request);
-  if (!checkRateLimit(RATE_LIMIT, RATE_WINDOW, user.email)) {
+  if (!checkRateLimit(_rateLimitMap, RATE_LIMIT, RATE_WINDOW, user.email)) {
     return NextResponse.json({ error: "Rate limit exceeded" }, { status: 429 });
   }
 
@@ -108,7 +109,7 @@ export async function PATCH(request: NextRequest) {
   if (denied) return denied;
 
   const user = getUserFromRequest(request);
-  if (!checkRateLimit(RATE_LIMIT, RATE_WINDOW, user.email)) {
+  if (!checkRateLimit(_rateLimitMap, RATE_LIMIT, RATE_WINDOW, user.email)) {
     return NextResponse.json({ error: "Rate limit exceeded" }, { status: 429 });
   }
 
@@ -171,7 +172,7 @@ export async function DELETE(request: NextRequest) {
   if (denied) return denied;
 
   const user = getUserFromRequest(request);
-  if (!checkRateLimit(RATE_LIMIT, RATE_WINDOW, user.email)) {
+  if (!checkRateLimit(_rateLimitMap, RATE_LIMIT, RATE_WINDOW, user.email)) {
     return NextResponse.json({ error: "Rate limit exceeded" }, { status: 429 });
   }
 

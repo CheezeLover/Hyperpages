@@ -46,16 +46,11 @@ _domain = os.environ.get("HYPERSET_DOMAIN", "")
 if _domain:
     _cors_origin_regex = rf"https://([a-zA-Z0-9-]+\.)?{re.escape(_domain)}$"
 else:
-    if os.environ.get("HYPERSET_ENV") == "production":
-        raise RuntimeError(
-            "HYPERSET_DOMAIN must be set in production. "
-            "CORS cannot safely operate without a domain restriction."
-        )
     log.warning(
-        "HYPERSET_DOMAIN is not set — CORS will allow localhost HTTPS origins only. "
-        "Set HYPERSET_DOMAIN for production."
+        "HYPERSET_DOMAIN is not set — CORS will allow all HTTPS origins. "
+        "Set this variable in production."
     )
-    _cors_origin_regex = r"https://(localhost|127\.0\.0\.1)(:[0-9]+)?"
+    _cors_origin_regex = r"https://.*"
 
 # credentials=True is required so the browser sends the Caddy auth cookie cross-origin.
 app.add_middleware(
