@@ -199,6 +199,13 @@ export function HypersetLayout({ pagesUrl, isAdmin, userEmail, canAccessAdmin, i
   // Messages relayed from inside the iframe by the injected script.
   // Arrow keys: Up/Down navigate between pages; Left/Right stay within the page.
   // Mouse events: drive the custom circle cursor without a blocking overlay.
+  const cursorHideTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const hideCursor = useCallback(() => { setCursorPos(null); setCursorPressed(false); }, []);
+  const resetHideTimer = useCallback(() => {
+    if (cursorHideTimer.current) clearTimeout(cursorHideTimer.current);
+    cursorHideTimer.current = setTimeout(hideCursor, 2000);
+  }, [hideCursor]);
+
   useEffect(() => {
     const handleMessage = (e: MessageEvent) => {
       if (!e.data) return;
@@ -209,18 +216,22 @@ export function HypersetLayout({ pagesUrl, isAdmin, userEmail, canAccessAdmin, i
         if (key === "ArrowUp" || key === "ArrowDown") navigateByKey(key);
       } else if (type === "hyperset-mousemove") {
         setCursorPos({ x: e.data.x as number, y: e.data.y as number });
+        resetHideTimer();
       } else if (type === "hyperset-mousedown") {
         setCursorPressed(true);
       } else if (type === "hyperset-mouseup") {
         setCursorPressed(false);
       } else if (type === "hyperset-mouseleave") {
-        setCursorPos(null);
-        setCursorPressed(false);
+        if (cursorHideTimer.current) clearTimeout(cursorHideTimer.current);
+        hideCursor();
       }
     };
     window.addEventListener("message", handleMessage);
-    return () => window.removeEventListener("message", handleMessage);
-  }, [navigateByKey]);
+    return () => {
+      window.removeEventListener("message", handleMessage);
+      if (cursorHideTimer.current) clearTimeout(cursorHideTimer.current);
+    };
+  }, [navigateByKey, hideCursor, resetHideTimer]);
 
   // Focus sentinel: window.blur fires when a cross-origin iframe claims keyboard
   // focus (focusin on the iframe element is not reliable cross-browser).  We wait
