@@ -19,7 +19,7 @@ export function CustomCursor() {
     const down = () => {
       isClicked = true;
       cursor.style.transform = 'translate(-50%, -50%) scale(0.8)';
-      cursor.style.background = '#FF6600';
+      cursor.style.background = 'var(--md-primary)';
     };
 
     const up = () => {
@@ -52,6 +52,7 @@ export function CustomCursor() {
         zIndex: 9999,
         transform: 'translate(-50%, -50%)',
         transition: 'transform 0.1s ease, background 0.1s ease',
+        mixBlendMode: 'difference',
       }}
     />
   );
