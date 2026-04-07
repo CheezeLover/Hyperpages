@@ -28,60 +28,21 @@ export function CustomCursor() {
       cursor.style.background = 'var(--md-on-surface)';
     };
 
-    const attachListeners = (el: Element) => {
-      el.addEventListener('mousemove', move as EventListener);
-      el.addEventListener('mousedown', down);
-      el.addEventListener('mouseup', up);
-    };
-
-    const detachListeners = (el: Element) => {
-      el.removeEventListener('mousemove', move as EventListener);
-      el.removeEventListener('mousedown', down);
-      el.removeEventListener('mouseup', up);
-    };
-
     window.addEventListener('mousemove', move);
     window.addEventListener('mousedown', down);
     window.addEventListener('mouseup', up);
 
-    const observer = new MutationObserver(() => {
-      document.querySelectorAll('iframe').forEach((iframe) => {
-        attachListeners(iframe);
-        const doc = iframe.contentDocument;
-        if (doc) {
-          doc.addEventListener('mousemove', move);
-          doc.addEventListener('mousedown', down);
-          doc.addEventListener('mouseup', up);
-        }
-      });
-    });
-
-    observer.observe(document.body, { childList: true, subtree: true });
-
-    document.querySelectorAll('iframe').forEach((iframe) => {
-      attachListeners(iframe);
-      const doc = iframe.contentDocument;
-      if (doc) {
-        doc.addEventListener('mousemove', move);
-        doc.addEventListener('mousedown', down);
-        doc.addEventListener('mouseup', up);
-      }
-    });
+    document.addEventListener('mousemove', move);
+    document.addEventListener('mousedown', down);
+    document.addEventListener('mouseup', up);
 
     return () => {
       window.removeEventListener('mousemove', move);
       window.removeEventListener('mousedown', down);
       window.removeEventListener('mouseup', up);
-      observer.disconnect();
-      document.querySelectorAll('iframe').forEach((iframe) => {
-        detachListeners(iframe);
-        const doc = iframe.contentDocument;
-        if (doc) {
-          doc.removeEventListener('mousemove', move);
-          doc.removeEventListener('mousedown', down);
-          doc.removeEventListener('mouseup', up);
-        }
-      });
+      document.removeEventListener('mousemove', move);
+      document.removeEventListener('mousedown', down);
+      document.removeEventListener('mouseup', up);
     };
   }, []);
 
