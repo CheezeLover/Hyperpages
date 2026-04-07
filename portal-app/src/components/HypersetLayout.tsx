@@ -163,36 +163,12 @@ export function HypersetLayout({ pagesUrl, isAdmin, userEmail, canAccessAdmin, i
   useEffect(() => { adminOpenRef.current = adminOpen; }, [adminOpen]);
   useEffect(() => { if (adminOpen) setAdminMounted(true); }, [adminOpen]);
 
-  const iframeFocusRef = useRef(false);
-  const focusSentinelRef = useRef<HTMLDivElement>(null);
-  useEffect(() => {
-    const onWindowBlur = () => {
-      if (!document.querySelector("iframe")) return;
-      setTimeout(() => {
-        if (document.activeElement?.tagName === "IFRAME") {
-          iframeFocusRef.current = true;
-          focusSentinelRef.current?.focus({ preventScroll: true });
-        }
-      }, 0);
-    };
-    const onFocusSentinelFocus = () => {
-      iframeFocusRef.current = false;
-    };
-    window.addEventListener("blur", onWindowBlur);
-    focusSentinelRef.current?.addEventListener("focusin", onFocusSentinelFocus);
-    return () => {
-      window.removeEventListener("blur", onWindowBlur);
-      focusSentinelRef.current?.removeEventListener("focusin", onFocusSentinelFocus);
-    };
-  }, []);
-
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (adminOpenRef.current) return;
       const tag = (e.target as HTMLElement).tagName;
       if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return;
       if ((e.target as HTMLElement).isContentEditable) return;
-      if (iframeFocusRef.current) return;
       if (e.key === "ArrowDown" || e.key === "ArrowUp") {
         e.preventDefault();
         navigateByKey(e.key);
@@ -208,10 +184,7 @@ export function HypersetLayout({ pagesUrl, isAdmin, userEmail, canAccessAdmin, i
     const handleMessage = (e: MessageEvent) => {
       if (!e.data || e.data.type !== "hyperset-keydown") return;
       if (adminOpenRef.current) return;
-      const key = e.data.key as string;
-      if (key === "ArrowDown" || key === "ArrowUp") {
-        navigateByKey(key);
-      }
+      navigateByKey(e.data.key as string);
     };
     window.addEventListener("message", handleMessage);
     return () => window.removeEventListener("message", handleMessage);
@@ -221,6 +194,19 @@ export function HypersetLayout({ pagesUrl, isAdmin, userEmail, canAccessAdmin, i
   // focus (focusin on the iframe element is not reliable cross-browser).  We wait
   // one tick then redirect to a hidden sentinel div so the keydown handler above
   // keeps receiving arrow keys.  pointer-events:none leaves mouse interaction intact.
+  const focusSentinelRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const onWindowBlur = () => {
+      if (!document.querySelector("iframe")) return; // no iframes → tab switch or address bar
+      setTimeout(() => {
+        if (document.activeElement?.tagName === "IFRAME") {
+          focusSentinelRef.current?.focus({ preventScroll: true });
+        }
+      }, 0);
+    };
+    window.addEventListener("blur", onWindowBlur);
+    return () => window.removeEventListener("blur", onWindowBlur);
+  }, []);
 
   // ── Track mounted iframes — add page on first selection ─────────────────────
   useEffect(() => {
