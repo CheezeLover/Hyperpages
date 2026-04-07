@@ -890,9 +890,10 @@ export function AdminModal({ onClose, userEmail, isAdmin, selectedProjectId, onS
 
         {/* Active project selector */}
         {projects.length > 0 && (
-          <div style={{ padding: "12px 20px 14px", borderBottom: "1px solid var(--md-outline-var)", flexShrink: 0, background: "var(--md-surface)" }}>
+          <div style={{ padding: "10px 12px 12px", borderBottom: "1px solid var(--md-outline-var)", flexShrink: 0, background: "var(--md-surface)" }}>
             <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: "0.09em", textTransform: "uppercase", color: "var(--md-on-surface)", opacity: 0.35, marginBottom: 10 }}>Active project</div>
-            <div style={{ display: "flex", gap: 6, overflowX: "auto", paddingBottom: 2, scrollbarWidth: "none" }}>
+            <style>{`.admin-chips::-webkit-scrollbar{display:none}`}</style>
+            <div className="admin-chips" style={{ display: "flex", flexWrap: "nowrap", gap: 6, overflowX: "auto", paddingBottom: 2, scrollbarWidth: "none", WebkitOverflowScrolling: "touch" } as React.CSSProperties}>
               {filteredProjects.map((p) => {
                 const isActive = p.id === selectedProjectId;
                 return (
