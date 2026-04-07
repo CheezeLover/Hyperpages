@@ -177,6 +177,11 @@ export function HypersetLayout({ pagesUrl, isAdmin, userEmail, canAccessAdmin, i
   const adminOpenRef = useRef(adminOpen);
   useEffect(() => { adminOpenRef.current = adminOpen; }, [adminOpen]);
   useEffect(() => { if (adminOpen) setAdminMounted(true); }, [adminOpen]);
+  useEffect(() => {
+    const onFullscreen = () => { if (document.fullscreenElement) setAdminOpen(false); };
+    document.addEventListener("fullscreenchange", onFullscreen);
+    return () => document.removeEventListener("fullscreenchange", onFullscreen);
+  }, []);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
