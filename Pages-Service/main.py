@@ -239,9 +239,9 @@ async def health_check():
 
 # capture=true: intercepts arrow keys before any element can stopPropagation(),
 # then relays them to the parent portal window for page navigation.
-_CURSOR_CSS = "<style>*{cursor: url('data:image/svg+xml,<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"16\" height=\"16\" viewBox=\"0 0 16 16\"><circle cx=\"8\" cy=\"8\" r=\"7\" fill=\"%23FF6600\" opacity=\"0.9\"/></svg>') 8 8, auto !important}</style>"
+_CURSOR_CSS = "<style>*{cursor: url('data:image/svg+xml,<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"20\" height=\"20\" viewBox=\"0 0 20 20\"><circle cx=\"10\" cy=\"10\" r=\"8\" fill=\"%23FF6600\" opacity=\"0.9\"/></svg>\") 10 10, auto !important}</style>"
 
-_CURSOR_CLICK_JS = "<script>document.addEventListener('mousedown',()=>{document.body.style.cursor='url(\"data:image/svg+xml,<svg xmlns=\\'http://www.w3.org/2000/svg\\' width=\\'16\\' height=\\'16\\' viewBox=\\'0 0 16 16\\'><circle cx=\\'8\\' cy=\\'8\\' r=\\'7\\' fill=\\'%23FF6B35\\'/></svg>\") 8 8,auto'});document.addEventListener('mouseup',()=>{document.body.style.cursor='url(\"data:image/svg+xml,<svg xmlns=\\'http://www.w3.org/2000/svg\\' width=\\'16\\' height=\\'16\\' viewBox=\\'0 0 16 16\\'><circle cx=\\'8\\' cy=\\'8\\' r=\\'7\\' fill=\\'%23FF6600\\' opacity=\\'0.9\\'/></svg>\") 8 8,auto'});</script>"
+_CURSOR_CLICK_JS = "<script>document.addEventListener('mousedown',()=>{document.body.style.cursor='url(\"data:image/svg+xml,<svg xmlns=\\'http://www.w3.org/2000/svg\\' width=\\'16\\' height=\\'16\\' viewBox=\\'0 0 16 16\\'><circle cx=\\'8\\' cy=\\'8\\' r=\\'8\\' fill=\\'%23FF6B35\\'/></svg>\") 8 8,auto'});document.addEventListener('mouseup',()=>{document.body.style.cursor='url(\"data:image/svg+xml,<svg xmlns=\\'http://www.w3.org/2000/svg\\' width=\\'20\\' height=\\'20\\' viewBox=\\'0 0 20 20\\'><circle cx=\\'10\\' cy=\\'10\\' r=\\'8\\' fill=\\'%23FF6600\\' opacity=\\'0.9\\'/></svg>\") 10 10,auto'});</script>"
 
 
 def _serve(name: str) -> HTMLResponse | JSONResponse:
