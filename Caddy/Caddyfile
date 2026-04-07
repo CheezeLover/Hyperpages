@@ -102,15 +102,12 @@ auth.{$HYPERSET_DOMAIN} {
 
     # All other routes require SSO
     handle {
-        # Strip any client-supplied identity headers before auth middleware runs,
-        # so only JWT-injected values (from "inject headers with claims") reach the backend.
-        request_header -X-Token-User-Id
-        request_header -X-Token-User-Email
-        request_header -X-Token-User-Roles
-
         authorize with mypolicy
 
         reverse_proxy hyperset-portal:3000 {
+            header_up X-Token-User-Id    {http.request.header.X-Token-User-Id}
+            header_up X-Token-User-Email {http.request.header.X-Token-User-Email}
+            header_up X-Token-User-Roles {http.request.header.X-Token-User-Roles}
             flush_interval -1
         }
     }
