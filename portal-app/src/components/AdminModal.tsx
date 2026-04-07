@@ -923,7 +923,8 @@ export function AdminModal({ onClose, userEmail, isAdmin, selectedProjectId, onS
         )}
 
         {/* Body */}
-        <div style={{ flex: 1, overflowY: "auto", padding: 0 }}>
+        <style>{`.admin-body::-webkit-scrollbar{display:none}`}</style>
+        <div className="admin-body" style={{ flex: 1, overflowY: "auto", scrollbarWidth: "none", padding: 0 }}>
           <ProjectsTab userEmail={userEmail} isAdmin={isAdmin} onPageFilesChanged={onPageFilesChanged} searchQuery={searchQuery} />
         </div>
       </div>
