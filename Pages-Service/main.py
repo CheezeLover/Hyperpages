@@ -239,9 +239,16 @@ async def health_check():
 
 # capture=true: intercepts arrow keys before any element can stopPropagation(),
 # then relays them to the parent portal window for page navigation.
-_CURSOR_CSS = "<style>*{cursor: url('data:image/svg+xml,<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"16\" height=\"16\" viewBox=\"0 0 16 16\"><circle cx=\"8\" cy=\"8\" r=\"7\" fill=\"%23FF6600\" opacity=\"0.9\"/></svg>') 8 8, auto !important}</style>"
+_CURSOR_CSS = "<style>*{cursor: none !important}</style>"
 
-_CURSOR_CLICK_JS = "<script>document.addEventListener('mousedown',()=>{document.body.style.cursor='url(\"data:image/svg+xml,<svg xmlns=\\'http://www.w3.org/2000/svg\\' width=\\'16\\' height=\\'16\\' viewBox=\\'0 0 16 16\\'><circle cx=\\'8\\' cy=\\'8\\' r=\\'7\\' fill=\\'%23FF6B35\\'/></svg>\") 8 8,auto'});document.addEventListener('mouseup',()=>{document.body.style.cursor='url(\"data:image/svg+xml,<svg xmlns=\\'http://www.w3.org/2000/svg\\' width=\\'16\\' height=\\'16\\' viewBox=\\'0 0 16 16\\'><circle cx=\\'8\\' cy=\\'8\\' r=\\'7\\' fill=\\'%23FF6600\\' opacity=\\'0.9\\'/></svg>\") 8 8,auto'});</script>"
+_ARROW_RELAY = (
+    "<script>(function(){"
+    "window.addEventListener('keydown',function(e){"
+    "if(['ArrowLeft','ArrowRight','ArrowUp','ArrowDown'].indexOf(e.key)!==-1){"
+    "try{window.parent.postMessage({type:'hyperset-keydown',key:e.key},'*');}catch(err){}"
+    "}},true);"
+    "})();</script>"
+)
 
 
 def _serve(name: str) -> HTMLResponse | JSONResponse:
@@ -266,13 +273,12 @@ def _serve(name: str) -> HTMLResponse | JSONResponse:
         return JSONResponse({"detail": "Page not found"}, status_code=404)
 
     html = index.read_text(encoding="utf-8")
-    cursor_inject = _CURSOR_CSS + _CURSOR_CLICK_JS
     if "</head>" in html:
-        html = html.replace("</head>", cursor_inject + "</head>", 1)
+        html = html.replace("</head>", _CURSOR_CSS + "</head>", 1)
     elif "</body>" in html:
-        html = html.replace("</body>", cursor_inject + _ARROW_RELAY + "</body>", 1)
+        html = html.replace("</body>", _CURSOR_CSS + _ARROW_RELAY + "</body>", 1)
     else:
-        html = cursor_inject + _ARROW_RELAY + html
+        html = _CURSOR_CSS + _ARROW_RELAY + html
     return HTMLResponse(content=html)
 
 
