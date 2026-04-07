@@ -244,8 +244,10 @@ async def health_check():
 #    blocking overlay (which would prevent clicks from reaching the page).
 _ARROW_RELAY = (
     "<script>(function(){"
-    # Hide the native cursor inside this page
-    "document.documentElement.style.cursor='none';"
+    # Hide the native cursor — injected <style> wins over any page CSS
+    "var _s=document.createElement('style');"
+    "_s.textContent='*,*::before,*::after{cursor:none!important}';"
+    "document.head.appendChild(_s);"
     # Arrow-key relay (capture phase so nothing inside can swallow them first)
     "window.addEventListener('keydown',function(e){"
     "if(['ArrowLeft','ArrowRight','ArrowUp','ArrowDown'].indexOf(e.key)!==-1){"
