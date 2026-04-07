@@ -126,8 +126,8 @@ export default async function RootLayout({
         )}
       </head>
       <body data-user-id={user.id} data-is-admin={user.isAdmin ? "true" : "false"}>
-        <CustomCursor />
         <ThemeProvider>
+          <CustomCursor />
           {children}
         </ThemeProvider>
       </body>
