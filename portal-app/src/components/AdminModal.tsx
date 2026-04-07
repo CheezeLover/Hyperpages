@@ -892,7 +892,8 @@ export function AdminModal({ onClose, userEmail, isAdmin, selectedProjectId, onS
         {projects.length > 0 && (
           <div style={{ padding: "10px 12px 12px", borderBottom: "1px solid var(--md-outline-var)", flexShrink: 0, background: "var(--md-surface)" }}>
             <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: "0.09em", textTransform: "uppercase", color: "var(--md-on-surface)", opacity: 0.35, marginBottom: 10 }}>Active project</div>
-            <div style={{ display: "flex", flexWrap: "wrap", gap: 6, maxHeight: 80, overflowY: "auto", WebkitOverflowScrolling: "touch" } as React.CSSProperties}>
+            <style>{`.admin-chips::-webkit-scrollbar{display:none}`}</style>
+            <div className="admin-chips" style={{ display: "flex", flexWrap: "wrap", gap: 6, maxHeight: 80, overflowY: "auto", scrollbarWidth: "none", WebkitOverflowScrolling: "touch" } as React.CSSProperties}>
               {filteredProjects.map((p) => {
                 const isActive = p.id === selectedProjectId;
                 return (
