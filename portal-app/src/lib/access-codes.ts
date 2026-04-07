@@ -39,7 +39,7 @@ export function generatePlaintextCode(): string {
 }
 
 export function hashCode(plaintext: string): string {
-  return createHash("sha256").update(plaintext).digest("hex");
+  return createHash("sha256").update(plaintext.toUpperCase()).digest("hex");
 }
 
 // ── DB operations ──────────────────────────────────────────────────────────────

@@ -34,7 +34,7 @@ export async function GET(
     return NextResponse.redirect(errorUrl);
   }
 
-  if (!code || [...code].length !== 5) {
+  if (!code || code.length !== 5) {
     errorUrl.searchParams.set("error", "invalid");
     return NextResponse.redirect(errorUrl);
   }
