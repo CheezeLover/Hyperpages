@@ -239,8 +239,6 @@ async def health_check():
 
 # capture=true: intercepts arrow keys before any element can stopPropagation(),
 # then relays them to the parent portal window for page navigation.
-_CURSOR_CSS = "<style>*{cursor: none !important}</style>"
-
 _ARROW_RELAY = (
     "<script>(function(){"
     "window.addEventListener('keydown',function(e){"
@@ -273,12 +271,10 @@ def _serve(name: str) -> HTMLResponse | JSONResponse:
         return JSONResponse({"detail": "Page not found"}, status_code=404)
 
     html = index.read_text(encoding="utf-8")
-    if "</head>" in html:
-        html = html.replace("</head>", _CURSOR_CSS + "</head>", 1)
-    elif "</body>" in html:
-        html = html.replace("</body>", _CURSOR_CSS + _ARROW_RELAY + "</body>", 1)
+    if "</body>" in html:
+        html = html.replace("</body>", _ARROW_RELAY + "</body>", 1)
     else:
-        html = _CURSOR_CSS + _ARROW_RELAY + html
+        html += _ARROW_RELAY
     return HTMLResponse(content=html)
 
 
