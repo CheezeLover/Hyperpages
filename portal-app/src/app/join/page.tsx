@@ -15,10 +15,6 @@ const MESSAGES: Record<string, { title: string; body: string }> = {
     title: "Configuration error",
     body: "The server is not configured to accept guest codes. Please contact the administrator.",
   },
-  rate_limited: {
-    title: "Too many attempts",
-    body: "Too many code attempts from your network. Please wait 15 minutes before trying again.",
-  },
 };
 
 function GeometricMark() {
