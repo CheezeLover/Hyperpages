@@ -32,10 +32,17 @@ export function CustomCursor() {
     window.addEventListener('mousedown', down);
     window.addEventListener('mouseup', up);
 
+    document.addEventListener('mousemove', move);
+    document.addEventListener('mousedown', down);
+    document.addEventListener('mouseup', up);
+
     return () => {
       window.removeEventListener('mousemove', move);
       window.removeEventListener('mousedown', down);
       window.removeEventListener('mouseup', up);
+      document.removeEventListener('mousemove', move);
+      document.removeEventListener('mousedown', down);
+      document.removeEventListener('mouseup', up);
     };
   }, []);
 
@@ -52,6 +59,7 @@ export function CustomCursor() {
         zIndex: 9999,
         transform: 'translate(-50%, -50%)',
         transition: 'transform 0.1s ease, background 0.1s ease',
+        mixBlendMode: 'difference',
       }}
     />
   );
