@@ -81,3 +81,9 @@ export async function checkRateLimitDistributed(
     return _memoryStore.check(limit, windowMs, key);
   }
 }
+
+
+  recent.push(now);
+  map.set(key, recent);
+  return true;
+}
