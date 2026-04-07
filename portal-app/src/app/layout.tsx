@@ -2,7 +2,6 @@ import type { Metadata } from "next";
 import "./globals.css";
 import { getCurrentUser } from "@/lib/auth";
 import { ThemeProvider } from "@/components/ThemeProvider";
-import { CustomCursor } from "@/components/CustomCursor";
 import { readFileSync } from "fs";
 import { join } from "path";
 
@@ -127,7 +126,6 @@ export default async function RootLayout({
       </head>
       <body data-user-id={user.id} data-is-admin={user.isAdmin ? "true" : "false"}>
         <ThemeProvider>
-          <CustomCursor />
           {children}
         </ThemeProvider>
       </body>
