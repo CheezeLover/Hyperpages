@@ -48,3 +48,36 @@ export function checkRateLimit(
   return _memoryStore.check(limit, windowMs, key);
 }
 
+// For distributed rate limiting, use this async version with Redis
+export async function checkRateLimitDistributed(
+  limit: number,
+  windowMs: number,
+  key: string,
+): Promise<boolean> {
+  const now = Date.now();
+  let redis = null;
+  try {
+    const { getRedis } = await import("@/lib/db");
+    redis = await getRedis();
+  } catch {
+    // Redis unavailable, fall back to memory
+    return _memoryStore.check(limit, windowMs, key);
+  }
+
+  try {
+    const stored = await redis.get(`ratelimit:${key}`);
+    const timestamps: number[] = stored ? JSON.parse(stored) : [];
+    const recent = timestamps.filter((t) => now - t < windowMs);
+
+    if (recent.length >= limit) {
+      await redis.set(`ratelimit:${key}`, JSON.stringify(recent), { ex: Math.ceil(windowMs / 1000) });
+      return false;
+    }
+    recent.push(now);
+    await redis.set(`ratelimit:${key}`, JSON.stringify(recent), { ex: Math.ceil(windowMs / 1000) });
+    return true;
+  } catch {
+    // Redis error, fall back to memory
+    return _memoryStore.check(limit, windowMs, key);
+  }
+}
