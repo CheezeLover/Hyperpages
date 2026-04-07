@@ -68,18 +68,8 @@ function parseGuestProjectIds(roles: string[]): string[] {
 
 export async function getCurrentUser(): Promise<HypersetUser> {
   const headersList = await headers();
-  // caddy-security v1.1.x injects {http.auth.user.*} as X-Token-User-* headers
-  // when using explicit header_up directives in the Caddyfile.  Fall back to
-  // X-Token-Subject (always injected by inject-headers-with-claims) so the
-  // portal remains functional across caddy-security versions.
-  const id =
-    headersList.get("x-token-user-id") ??
-    headersList.get("x-token-subject") ??
-    "anonymous";
-  const email =
-    headersList.get("x-token-user-email") ??
-    headersList.get("x-token-subject") ??
-    "";
+  const id = headersList.get("x-token-user-id") ?? "anonymous";
+  const email = headersList.get("x-token-user-email") ?? "";
   const { roles, isAdmin } = parseRoles(
     headersList.get("x-token-user-roles")
   );
@@ -88,14 +78,8 @@ export async function getCurrentUser(): Promise<HypersetUser> {
 }
 
 export function getUserFromRequest(request: Request): HypersetUser {
-  const id =
-    request.headers.get("x-token-user-id") ??
-    request.headers.get("x-token-subject") ??
-    "anonymous";
-  const email =
-    request.headers.get("x-token-user-email") ??
-    request.headers.get("x-token-subject") ??
-    "";
+  const id = request.headers.get("x-token-user-id") ?? "anonymous";
+  const email = request.headers.get("x-token-user-email") ?? "";
   const { roles, isAdmin } = parseRoles(
     request.headers.get("x-token-user-roles")
   );
