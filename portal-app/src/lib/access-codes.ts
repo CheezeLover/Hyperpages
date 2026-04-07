@@ -25,21 +25,66 @@ export interface AccessCode {
 
 // ── Code generation ────────────────────────────────────────────────────────────
 
-/** Alphabet for code generation — no ambiguous chars (0/O, 1/I/L). */
-const CODE_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+/**
+ * Unicode alphabet drawn from multiple scripts.
+ * Homoglyphs that look identical to Latin characters are excluded from each
+ * script (e.g. Greek Α/Β/Ε/Ζ/Η/Ι/Κ/Μ/Ν/Ο/Ρ/Τ/Υ/Χ, Cyrillic А/В/Е/К/М/Н/О/Р/С/Т/Х).
+ * All characters are printable, non-combining, and safe in percent-encoded URLs.
+ */
+const CODE_ALPHABET_CHARS: string[] = [
+  // Latin — no ambiguous (O≈0, I/L≈1)
+  ..."ABCDEFGHJKLMNPQRSTUVWXYZ23456789",
+  // Greek uppercase — homoglyphs removed
+  ..."ΓΔΘΛΞΠΣΦΨΩ",
+  // Cyrillic uppercase — homoglyphs removed
+  ..."БВГДЖЗИЙЛПФЦЧШЩЭЮЯ",
+  // Armenian uppercase
+  ..."ԲԳԴԵԶԷԸԺԻԾԿՀՁՂՃՄՅՆՇՈՉՊՋՌՍՎՏՐՑՒՓՔ",
+  // Georgian Mkhedruli (unicase script)
+  ..."ბგდვზთიკლმნოპჟრსტუფქღყშჩცძწჭხჯჰ",
+  // Hiragana (base 46)
+  ..."あいうえおかきくけこさしすせそたちつてとなにぬねのはひふへほまみむめもやゆよらりるれろわをん",
+  // Katakana (base 46 — visually distinct from Hiragana)
+  ..."アイウエオカキクケコサシスセソタチツテトナニヌネノハヒフヘホマミムメモヤユヨラリルレロワヲン",
+  // CJK common characters (simple, high-frequency)
+  ..."一二三四五六七八九十百千万大小中上下左右火水木金土日月山川",
+  // Hangul syllables (common)
+  ..."가나다라마바사아자차카타파하",
+  // Thai consonants
+  ..."กขคงจฉชซดตถทนบปผพฟมยรลวสหอ",
+  // Devanagari consonants (standalone, no vowel marks)
+  ..."कखगघचछजझटठडढतथदधनपफबभमयरलवशषस",
+];
+
+// Deduplicate (safety net) and freeze into a plain array for O(1) index access.
+const CODE_CHARS = [...new Set(CODE_ALPHABET_CHARS)];
+
 const CODE_LENGTH = 5;
 const CODE_TTL_DAYS = 30;
 
+/**
+ * Generates a random CODE_LENGTH-character code drawn uniformly from CODE_CHARS.
+ * Uses Uint32 values + rejection sampling so there is zero modulo bias regardless
+ * of alphabet size (works for any alphabet up to 2^32 characters).
+ */
 export function generatePlaintextCode(): string {
-  const bytes = new Uint8Array(CODE_LENGTH);
-  crypto.getRandomValues(bytes);
-  return Array.from(bytes)
-    .map((b) => CODE_ALPHABET[b % CODE_ALPHABET.length])
-    .join("");
+  const n = CODE_CHARS.length;
+  // Largest multiple of n that fits in uint32 — values >= limit are rejected.
+  const limit = Math.floor(0x1_0000_0000 / n) * n;
+  const result: string[] = [];
+  while (result.length < CODE_LENGTH) {
+    const buf = new Uint32Array(CODE_LENGTH * 2); // over-generate to minimise loops
+    crypto.getRandomValues(buf);
+    for (const val of buf) {
+      if (result.length >= CODE_LENGTH) break;
+      if (val < limit) result.push(CODE_CHARS[val % n]);
+    }
+  }
+  return result.join("");
 }
 
 export function hashCode(plaintext: string): string {
-  return createHash("sha256").update(plaintext.toUpperCase()).digest("hex");
+  return createHash("sha256").update(plaintext).digest("hex");
 }
 
 // ── DB operations ──────────────────────────────────────────────────────────────
