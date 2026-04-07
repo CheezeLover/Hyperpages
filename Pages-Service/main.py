@@ -237,14 +237,34 @@ async def health_check():
     )
 
 
-# capture=true: intercepts arrow keys before any element can stopPropagation(),
-# then relays them to the parent portal window for page navigation.
+# Injected into every served page:
+#  - Hides the system cursor so the portal can render a custom circle cursor.
+#  - Relays arrow keys (capture phase) to the parent for page navigation.
+#  - Relays mouse events so the parent can track cursor position without a
+#    blocking overlay (which would prevent clicks from reaching the page).
 _ARROW_RELAY = (
     "<script>(function(){"
+    # Hide the native cursor inside this page
+    "document.documentElement.style.cursor='none';"
+    # Arrow-key relay (capture phase so nothing inside can swallow them first)
     "window.addEventListener('keydown',function(e){"
     "if(['ArrowLeft','ArrowRight','ArrowUp','ArrowDown'].indexOf(e.key)!==-1){"
     "try{window.parent.postMessage({type:'hyperset-keydown',key:e.key},'*');}catch(err){}"
     "}},true);"
+    # Mouse-position relay — throttled to one message per animation frame
+    "var _raf=null;"
+    "window.addEventListener('mousemove',function(e){"
+    "var x=e.clientX,y=e.clientY;"
+    "if(_raf)return;"
+    "_raf=requestAnimationFrame(function(){_raf=null;"
+    "try{window.parent.postMessage({type:'hyperset-mousemove',x:x,y:y},'*');}catch(err){}});"
+    "});"
+    "window.addEventListener('mousedown',function(){"
+    "try{window.parent.postMessage({type:'hyperset-mousedown'},'*');}catch(err){}});"
+    "window.addEventListener('mouseup',function(){"
+    "try{window.parent.postMessage({type:'hyperset-mouseup'},'*');}catch(err){}});"
+    "window.addEventListener('mouseleave',function(){"
+    "try{window.parent.postMessage({type:'hyperset-mouseleave'},'*');}catch(err){}});"
     "})();</script>"
 )
 

@@ -196,16 +196,26 @@ export function HypersetLayout({ pagesUrl, isAdmin, userEmail, canAccessAdmin, i
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [navigateByKey, forwardKeyToIframe]);
 
-  // Arrow keys relayed from inside the iframe via postMessage
-  // (type "hyperset-keydown" injected by the Pages Service).
-  // Only Up/Down trigger page navigation; Left/Right stay within the page.
+  // Messages relayed from inside the iframe by the injected script.
+  // Arrow keys: Up/Down navigate between pages; Left/Right stay within the page.
+  // Mouse events: drive the custom circle cursor without a blocking overlay.
   useEffect(() => {
     const handleMessage = (e: MessageEvent) => {
-      if (!e.data || e.data.type !== "hyperset-keydown") return;
-      if (adminOpenRef.current) return;
-      const key = e.data.key as string;
-      if (key === "ArrowUp" || key === "ArrowDown") {
-        navigateByKey(key);
+      if (!e.data) return;
+      const { type } = e.data as { type: string };
+      if (type === "hyperset-keydown") {
+        if (adminOpenRef.current) return;
+        const key = e.data.key as string;
+        if (key === "ArrowUp" || key === "ArrowDown") navigateByKey(key);
+      } else if (type === "hyperset-mousemove") {
+        setCursorPos({ x: e.data.x as number, y: e.data.y as number });
+      } else if (type === "hyperset-mousedown") {
+        setCursorPressed(true);
+      } else if (type === "hyperset-mouseup") {
+        setCursorPressed(false);
+      } else if (type === "hyperset-mouseleave") {
+        setCursorPos(null);
+        setCursorPressed(false);
       }
     };
     window.addEventListener("message", handleMessage);
@@ -323,19 +333,7 @@ export function HypersetLayout({ pagesUrl, isAdmin, userEmail, canAccessAdmin, i
           );
         })}
 
-        {/* Cursor tracking overlay — sits above iframes, captures mouse position */}
-        <div
-          style={{ position: "absolute", inset: 0, zIndex: 5, cursor: "none" }}
-          onMouseMove={(e) => {
-            const rect = e.currentTarget.getBoundingClientRect();
-            setCursorPos({ x: e.clientX - rect.left, y: e.clientY - rect.top });
-          }}
-          onMouseLeave={() => { setCursorPos(null); setCursorPressed(false); }}
-          onMouseDown={() => setCursorPressed(true)}
-          onMouseUp={() => setCursorPressed(false)}
-        />
-
-        {/* Circle cursor */}
+        {/* Circle cursor — position fed by mouse events relayed from the iframe */}
         {cursorPos && (
           <div
             style={{
