@@ -46,8 +46,36 @@ const CODE_ALPHABET_CHARS: string[] = [
   ..."あいうえおかきくけこさしすせそたちつてとなにぬねのはひふへほまみむめもやゆよらりるれろわをん",
   // Katakana (base 46 — visually distinct from Hiragana)
   ..."アイウエオカキクケコサシスセソタチツテトナニヌネノハヒフヘホマミムメモヤユヨラリルレロワヲン",
-  // CJK common characters (simple, high-frequency)
-  ..."一二三四五六七八九十百千万大小中上下左右火水木金土日月山川",
+  // CJK — numbers & basics
+  ..."一二三四五六七八九十百千万亿零元年时分秒",
+  // CJK — nature
+  ..."天地风雨雪云草花树林江河海湖泉石沙竹松梅兰菊",
+  // CJK — body
+  ..."人口手足目耳心头发面",
+  // CJK — animals
+  ..."马牛羊鸡狗猫鱼鸟虎龙虫蝶蜂蛇",
+  // CJK — directions & positions
+  ..."大小中上下左右东西南北前后内外高低",
+  // CJK — elements & materials
+  ..."火水木金土日月山川银铜铁",
+  // CJK — colors
+  ..."红绿蓝黄白黑紫橙",
+  // CJK — food & drink
+  ..."米饭茶酒肉菜",
+  // CJK — common adjectives
+  ..."好坏多少长短新旧快慢强弱冷热明暗",
+  // CJK — common verbs
+  ..."走来去看说听打开关用买卖送收给取放拿做笑哭爱想",
+  // CJK — society & places
+  ..."国家城市道路门窗书字学校工农商",
+  // CJK — people & relations
+  ..."男女生先父母兄弟姐妹朋友邻客",
+  // CJK — seasons & time of day
+  ..."春夏秋冬早午晚夜",
+  // CJK — arts & senses
+  ..."诗画歌声光影色形品质力气语文数",
+  // CJK — transport & structures
+  ..."船车机楼屋桥",
   // Hangul syllables (common)
   ..."가나다라마바사아자차카타파하",
   // Thai consonants
