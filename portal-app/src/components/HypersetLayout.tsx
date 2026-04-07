@@ -53,6 +53,9 @@ export function HypersetLayout({ pagesUrl, isAdmin, userEmail, canAccessAdmin, i
   const [iframeKey, setIframeKey] = useState(0);
   // Pages whose iframes have been mounted at least once — kept alive to avoid reload flash
   const [mountedPages, setMountedPages] = useState<Set<string>>(new Set());
+  // Custom circle cursor state (over the pages panel)
+  const [cursorPos, setCursorPos] = useState<{ x: number; y: number } | null>(null);
+  const [cursorPressed, setCursorPressed] = useState(false);
 
   // ── Fetch raw data; never derives display state (no double setState tricks) ──
   const loadData = useCallback(async () => {
@@ -140,16 +143,17 @@ export function HypersetLayout({ pagesUrl, isAdmin, userEmail, canAccessAdmin, i
   const pagesRef = useRef<Page[]>([]);
   useEffect(() => { pagesRef.current = pages; }, [pages]);
 
+  // Up/Down navigate between pages; Left/Right are forwarded to the active iframe
   const navigateByKey = useCallback((key: string) => {
     const ps = pagesRef.current;
-    if (key === "ArrowRight" || key === "ArrowDown") {
+    if (key === "ArrowDown") {
       setSelectedPage((current) => {
         if (ps.length === 0) return null;
         if (!current) return ps[0];
         const idx = ps.findIndex((p) => p.name === current.name);
         return idx < ps.length - 1 ? ps[idx + 1] : current;
       });
-    } else if (key === "ArrowLeft" || key === "ArrowUp") {
+    } else if (key === "ArrowUp") {
       setSelectedPage((current) => {
         if (ps.length === 0) return null;
         if (!current) return ps[0];
@@ -158,6 +162,17 @@ export function HypersetLayout({ pagesUrl, isAdmin, userEmail, canAccessAdmin, i
       });
     }
   }, []); // stable — reads pages via ref
+
+  // Forward Left/Right to the active iframe so the page can handle internal navigation
+  const selectedPageRef = useRef<Page | null>(null);
+  useEffect(() => { selectedPageRef.current = selectedPage; }, [selectedPage]);
+
+  const forwardKeyToIframe = useCallback((key: string) => {
+    const page = selectedPageRef.current;
+    if (!page) return;
+    const iframe = document.querySelector(`iframe[data-page-name="${page.name}"]`) as HTMLIFrameElement;
+    iframe?.contentWindow?.postMessage({ type: "hyperset-keydown", key }, "*");
+  }, []);
 
   const adminOpenRef = useRef(adminOpen);
   useEffect(() => { adminOpenRef.current = adminOpen; }, [adminOpen]);
@@ -169,22 +184,29 @@ export function HypersetLayout({ pagesUrl, isAdmin, userEmail, canAccessAdmin, i
       const tag = (e.target as HTMLElement).tagName;
       if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return;
       if ((e.target as HTMLElement).isContentEditable) return;
-      if (e.key === "ArrowRight" || e.key === "ArrowDown" || e.key === "ArrowLeft" || e.key === "ArrowUp") {
+      if (e.key === "ArrowDown" || e.key === "ArrowUp") {
         e.preventDefault();
         navigateByKey(e.key);
+      } else if (e.key === "ArrowLeft" || e.key === "ArrowRight") {
+        e.preventDefault();
+        forwardKeyToIframe(e.key);
       }
     };
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [navigateByKey]);
+  }, [navigateByKey, forwardKeyToIframe]);
 
   // Arrow keys relayed from inside the iframe via postMessage
   // (type "hyperset-keydown" injected by the Pages Service).
+  // Only Up/Down trigger page navigation; Left/Right stay within the page.
   useEffect(() => {
     const handleMessage = (e: MessageEvent) => {
       if (!e.data || e.data.type !== "hyperset-keydown") return;
       if (adminOpenRef.current) return;
-      navigateByKey(e.data.key as string);
+      const key = e.data.key as string;
+      if (key === "ArrowUp" || key === "ArrowDown") {
+        navigateByKey(key);
+      }
     };
     window.addEventListener("message", handleMessage);
     return () => window.removeEventListener("message", handleMessage);
@@ -286,6 +308,7 @@ export function HypersetLayout({ pagesUrl, isAdmin, userEmail, canAccessAdmin, i
           return (
             <iframe
               key={`${page.name}-${iframeKey}`}
+              data-page-name={page.name}
               src={`${pagesUrl}/${page.name}${iframeKey > 0 ? `?v=${iframeKey}` : ""}`}
               title={page.displayName}
               style={{
@@ -299,6 +322,39 @@ export function HypersetLayout({ pagesUrl, isAdmin, userEmail, canAccessAdmin, i
             />
           );
         })}
+
+        {/* Cursor tracking overlay — sits above iframes, captures mouse position */}
+        <div
+          style={{ position: "absolute", inset: 0, zIndex: 5, cursor: "none" }}
+          onMouseMove={(e) => {
+            const rect = e.currentTarget.getBoundingClientRect();
+            setCursorPos({ x: e.clientX - rect.left, y: e.clientY - rect.top });
+          }}
+          onMouseLeave={() => { setCursorPos(null); setCursorPressed(false); }}
+          onMouseDown={() => setCursorPressed(true)}
+          onMouseUp={() => setCursorPressed(false)}
+        />
+
+        {/* Circle cursor */}
+        {cursorPos && (
+          <div
+            style={{
+              position: "absolute",
+              left: cursorPos.x,
+              top: cursorPos.y,
+              width: cursorPressed ? 20 : 32,
+              height: cursorPressed ? 20 : 32,
+              transform: "translate(-50%, -50%)",
+              borderRadius: "50%",
+              border: "2px solid rgba(255, 255, 255, 0.85)",
+              background: cursorPressed ? "rgba(255, 255, 255, 0.25)" : "transparent",
+              boxShadow: "0 0 0 1px rgba(0, 0, 0, 0.35)",
+              pointerEvents: "none",
+              zIndex: 6,
+              transition: "width 0.12s ease, height 0.12s ease, background 0.12s ease",
+            }}
+          />
+        )}
       </div>
 
       {/* Service column */}
