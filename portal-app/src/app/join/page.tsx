@@ -92,7 +92,7 @@ export default function JoinPage() {
   };
 
   const handleCharInput = (index: number, value: string) => {
-    const char = value.replace(/[^a-zA-Z0-9]/g, "").slice(-1).toUpperCase();
+    const char = [...value.replace(/\s/g, "")].slice(-1)[0] ?? "";
     const newChars = [...chars];
     newChars[index] = char;
     setChars(newChars);
@@ -128,17 +128,13 @@ export default function JoinPage() {
 
   const handlePaste = (e: React.ClipboardEvent) => {
     e.preventDefault();
-    const pasted = e.clipboardData
-      .getData("text")
-      .replace(/[^a-zA-Z0-9]/g, "")
-      .toUpperCase()
-      .slice(0, 5);
+    const pasted = [...e.clipboardData.getData("text").replace(/\s/g, "")].slice(0, 5);
     const newChars = ["", "", "", "", ""];
     for (let i = 0; i < pasted.length; i++) newChars[i] = pasted[i];
     setChars(newChars);
     const focusIdx = Math.min(pasted.length, 4);
     setTimeout(() => inputRefs.current[focusIdx]?.focus(), 0);
-    if (pasted.length === 5) setTimeout(() => navigate(pasted), 100);
+    if (pasted.length === 5) setTimeout(() => navigate(pasted.join("")), 100);
   };
 
   return (
@@ -336,7 +332,7 @@ export default function JoinPage() {
                     autoFocus={i === 0}
                     autoComplete="off"
                     autoCorrect="off"
-                    autoCapitalize="characters"
+                    autoCapitalize="none"
                     spellCheck={false}
                     style={{
                       width: isNarrow ? 54 : 62,
