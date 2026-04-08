@@ -3,8 +3,9 @@ import { getAccessCodeByHash, hashCode, issueGuestJWT } from "@/lib/access-codes
 import { getProject } from "@/lib/project-settings";
 import { checkRateLimit } from "@/lib/utils";
 
-// IP-based rate limit: 100 attempts per minute per IP.
+// IP-based rate limit: configurable via JOIN_RATE_LIMIT_RPM, default 100 per minute per IP.
 const joinRateLimitMap = new Map<string, number[]>();
+const JOIN_RATE_LIMIT = parseInt(process.env.JOIN_RATE_LIMIT_RPM ?? "100", 10);
 
 export async function GET(
   request: NextRequest,
@@ -12,7 +13,7 @@ export async function GET(
 ) {
   const ip =
     request.headers.get("x-forwarded-for")?.split(",")[0].trim() ?? "unknown";
-  if (!checkRateLimit(joinRateLimitMap, 100, 60 * 1000, ip)) {
+  if (!checkRateLimit(joinRateLimitMap, JOIN_RATE_LIMIT, 60 * 1000, ip)) {
     return new NextResponse("Too Many Requests", { status: 429 });
   }
 
